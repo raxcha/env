@@ -33,6 +33,7 @@ func CreateMasterWithStage(arg string, stage string) *Master {
 		Size:    routines.Bound{0, 0},
 		Mode:    "monocle",
 		Stage:   NormalizeStage(stage),
+		Profile: startupProfile(),
 		Focus:   0,
 		Clients: []cli.Cli{},
 	}
@@ -59,6 +60,18 @@ func CreateMasterWithStage(arg string, stage string) *Master {
 	m.initGhostCache()
 
 	return m
+}
+
+func startupProfile() string {
+	profile := strings.ToLower(strings.TrimSpace(os.Getenv("ENV_PROFILE")))
+	switch profile {
+	case "phone", "mobile", "termux":
+		return "phone"
+	case "compact":
+		return "compact"
+	default:
+		return "desktop"
+	}
 }
 
 func syncAddr() string {

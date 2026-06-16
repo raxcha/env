@@ -75,6 +75,9 @@ func (s *Status) line(width int) string {
 
 func statusTimeSegments(width int) []statusSegment {
 	now := time.Now()
+	if width < 50 {
+		return nil
+	}
 	if width < 78 {
 		return []statusSegment{{Text: now.Format("15:04"), Priority: 0}}
 	}
@@ -389,6 +392,11 @@ func (s *Status) rightStatusText() string {
 		return ""
 	}
 
+	size := fmt.Sprintf("%dx%d", s.Bounds.Fullsize[0], s.Bounds.Fullsize[1])
+	if s.Bounds.Fullsize[0] < 50 {
+		return statusDashToken(size)
+	}
+
 	parts := []string{}
 	if e, ok := focusedClient(s.Parent).(*editor.Editor); ok {
 		for _, segment := range s.editorInfo(e) {
@@ -401,7 +409,6 @@ func (s *Status) rightStatusText() string {
 	}
 
 	mode := "mode:" + nonEmpty(modeFromFocused(s.Parent), "-")
-	size := fmt.Sprintf("%dx%d", s.Bounds.Fullsize[0], s.Bounds.Fullsize[1])
 	parts = append(parts, mode, size)
 	for i := range parts {
 		parts[i] = statusDashToken(parts[i])

@@ -29,6 +29,7 @@ type Master struct {
 
 	Mode    string
 	Stage   string
+	Profile string
 	Focus   int
 	Clients []cli.Cli
 }

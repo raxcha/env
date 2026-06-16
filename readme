@@ -352,11 +352,18 @@ git commit -m "update env"
 git push
 
 MOBILE USAGE
-- have triggered, a command for downloading the lastest version of env in git ...
-- have triggered, a command to compile and run env ...
-* adapting every part of the drawing to be friendly to small screens ...
-  - ai help ...
-* go testing on pc and remapping phone's keyboard ...
+- termux first path:
+  ENV_REPO=https://github.com/you/env.git bash scripts/termux-install.sh
+- generated commands:
+  env-update -> pulls latest git version and rebuilds env .
+  env-run -> runs env with ENV_PROFILE=phone, ENV_ROOT=$HOME/prsnl.spc and ENV_ADDR=https://prsnlspc.xyz .
+- phone/compact layout:
+  - no global left/right program padding on compact screens .
+  - statusbar hides time under 50 columns and keeps only screen size on the right .
+* next:
+  - adapt picker/projects/zettelkasten previews into toggle/fullscreen modes on small screens .
+  - add command-menu alternatives for difficult phone key chords .
+  - go testing on pc and remapping phone's keyboard ...
 
 FINE-TUNING!
 * make it more COLORFUL ...

@@ -8,6 +8,7 @@ import (
 func (m *Master) updateBoundaries(fullsize *routines.Bound) {
 
 	m.Size = *fullsize
+	m.updateResponsiveProfile()
 
 	m.setFixedClientBounds()
 
@@ -303,9 +304,37 @@ func (m *Master) horizontalInset() (int, int) {
 		return 0, 0
 	}
 
+	if m.isCompactScreen() {
+		return 0, maxInt(0, m.Size[0])
+	}
+
 	if m.Size[0] <= 2 {
 		return 0, maxInt(0, m.Size[0])
 	}
 
 	return 1, m.Size[0] - 2
+}
+
+func (m *Master) updateResponsiveProfile() {
+	if m.Profile == "phone" {
+		return
+	}
+	if len(m.Size) < 2 {
+		return
+	}
+	if m.Size[0] < 72 || m.Size[1] < 22 {
+		m.Profile = "compact"
+		return
+	}
+	m.Profile = "desktop"
+}
+
+func (m *Master) isCompactScreen() bool {
+	if m.Profile == "phone" || m.Profile == "compact" {
+		return true
+	}
+	if len(m.Size) < 2 {
+		return false
+	}
+	return m.Size[0] < 72 || m.Size[1] < 22
 }

@@ -2444,14 +2444,7 @@ func (p *Picker) pickerUsePreview() bool {
 	if p.panelMode() == "list" {
 		return false
 	}
-	if p.panelMode() == "preview" {
-		return true
-	}
-	if len(p.Bounds.Size) < 2 {
-		return false
-	}
-
-	return p.Bounds.Size[0] >= 70 && p.Bounds.Size[1] >= 12
+	return true
 }
 
 func (p *Picker) panelMode() string {
@@ -2501,8 +2494,14 @@ func (p *Picker) pickerLayout() (pickerRect, pickerRect, pickerRect) {
 		if leftW > w-2 {
 			leftW = w - 2
 		}
+		if leftW < 1 {
+			leftW = 1
+		}
 
 		sepV := 1
+		if w < 3 {
+			sepV = 0
+		}
 		previewW := w - leftW - sepV
 
 		if previewW < 1 {

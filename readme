@@ -364,6 +364,41 @@ MOBILE USAGE
   - adapt picker/projects/zettelkasten previews into toggle/fullscreen modes on small screens .
   - add command-menu alternatives for difficult phone key chords .
   - go testing on pc and remapping phone's keyboard ...
+*** make it open as an app ...
+*** adapt clicks keyboard with "KEY MAPPER" ...
 
-FINE-TUNING!
+KEY MAPPING ON PHONE
+- arrows > meta + i l m j
+  - works with ctrl ...
+- = esc > meta + q
+- = tab > meta + a
+- backspace and ctrl+backspace work normally
+- *  > meta + t
+- _  > meta + y
+- %  > meta + u
+- $  > meta + g
+- &  > meta + h
+- ^ > meta + v
+- @ > meta + b
+- # > meta + n
+- / > 
+- , ? meta + k
+- . > meta + .
+- ? > meta + o
+- ! > 
+- + > 
+- - > 
+- numbers > (normal) numberkey + ...
+-  unchanged: ctrl+z, ctrl+y, ctrl+x, ctrl+d, ctrl+s, ctrl+p, ctrl+o, ctrl+p, ctrl+c, ctrl+v ...
+- ctrl+space works fine ...
+- ctrl+backspace works fine ...
+- ctrl+enter does not work @ ...
+
+
+
+
+FINE-TUNING
 * make it more COLORFUL ...
+- statusbar is bad ...
+
+

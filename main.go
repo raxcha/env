@@ -54,6 +54,6 @@ func defaultClientArg(stage string) string {
 	case "master", "tabs":
 		return ""
 	default:
-		return "editor"
+		return ""
 	}
 }

@@ -14,6 +14,9 @@ import (
 )
 
 func (m *Master) updateInput(newinput *routines.Input) {
+	if newinput.Key == "ctrl+t" {
+		newinput.Key = "ctrl+enter"
+	}
 
 	if newinput.Key == "ctrl+z" && m.Notifications.On {
 		m.Notifications.CancelLatest()

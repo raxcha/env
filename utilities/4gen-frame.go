@@ -12,6 +12,9 @@ func (u *Utilities) GenerateFrame(
 ) *engine.Frame {
 
 	theme := u.Theme
+	if theme == nil {
+		theme = mapTheme(fallbackRawTheme())
+	}
 
 	/*
 	   - start "§fc1 " > bg, fg and wrap(num) ...

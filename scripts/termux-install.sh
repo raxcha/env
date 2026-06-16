@@ -57,6 +57,7 @@ set -euo pipefail
 export ENV_ROOT="\${ENV_ROOT:-$DATA_DIR}"
 export ENV_ADDR="\${ENV_ADDR:-$DEFAULT_ENV_ADDR}"
 export ENV_PROFILE="\${ENV_PROFILE:-$DEFAULT_ENV_PROFILE}"
+cd "$ENV_DIR"
 exec "$BIN_DIR/env" "\$@"
 EOF_RUN
 

@@ -9,7 +9,7 @@ import (
 
 func CreateUtilities() *Utilities {
 	u := Utilities{}
-	rawThemes, _ := LoadRawThemes("themes.json")
+	rawThemes := loadStartupRawThemes()
 
 	themeMap := make(map[string]*Theme, len(rawThemes))
 	themes := make([]*Theme, 0, len(rawThemes))
@@ -24,8 +24,61 @@ func CreateUtilities() *Utilities {
 
 	u.Themes = themes
 	u.Theme = selectStartupTheme(themeMap, "Spacemacs Dark")
+	if u.Theme == nil {
+		fallback := mapTheme(fallbackRawTheme())
+		u.Themes = append(u.Themes, fallback)
+		u.Theme = fallback
+	}
 
 	return &u
+}
+
+func loadStartupRawThemes() []*rawTheme {
+	for _, path := range themeFileCandidates() {
+		rawThemes, err := LoadRawThemes(path)
+		if err == nil && len(rawThemes) > 0 {
+			return rawThemes
+		}
+	}
+	return []*rawTheme{fallbackRawTheme()}
+}
+
+func themeFileCandidates() []string {
+	paths := []string{"themes.json"}
+	if exe, err := os.Executable(); err == nil && strings.TrimSpace(exe) != "" {
+		paths = append(paths, filepath.Join(filepath.Dir(exe), "themes.json"))
+	}
+	if home, err := os.UserHomeDir(); err == nil && strings.TrimSpace(home) != "" {
+		paths = append(paths, filepath.Join(home, "env", "themes.json"))
+	}
+	return paths
+}
+
+func fallbackRawTheme() *rawTheme {
+	return &rawTheme{
+		Name:       "Spacemacs Dark",
+		Author:     "Nasser Alshammari (https://github.com/nashamri/spacemacs-theme)",
+		Variant:    "dark",
+		Color01:    "#212026",
+		Color02:    "#e0211d",
+		Color03:    "#67b11d",
+		Color04:    "#b1951d",
+		Color05:    "#4f97d7",
+		Color06:    "#bc6ec5",
+		Color07:    "#28def0",
+		Color08:    "#cbc1d5",
+		Color09:    "#44505c",
+		Color10:    "#f2241f",
+		Color11:    "#86dc2f",
+		Color12:    "#dc752f",
+		Color13:    "#7590db",
+		Color14:    "#ce537a",
+		Color15:    "#2d9574",
+		Color16:    "#e3dedd",
+		Background: "#292b2e",
+		Foreground: "#b2b2b2",
+		Cursor:     "#e3dedd",
+	}
 }
 
 func selectStartupTheme(themeMap map[string]*Theme, fallback string) *Theme {

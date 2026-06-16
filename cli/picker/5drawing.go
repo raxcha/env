@@ -13,9 +13,16 @@ func (p *Picker) Draw() *engine.Queue {
 
 	p.updateItems()
 
+	if p.panelMode() == "preview" {
+		previewframe := p.drawPreview()
+		q := utilities.NewQueue()
+		q.Frames = append(q.Frames, *previewframe)
+		q.Size = p.Bounds.Fullsize
+		return q
+	}
+
 	itemsframe := p.drawItems()
 	promptframe := p.drawPrompt()
-
 	finalframe := p.Utilities.MergeFrames(*promptframe, *itemsframe)
 
 	if p.pickerUsePreview() {

@@ -21,6 +21,7 @@ type Picker struct {
 	Mode          string
 	Sorting       string
 	Scope         string
+	PanelMode     string
 
 	Name      string
 	Path      string

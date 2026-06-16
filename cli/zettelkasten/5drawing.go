@@ -16,16 +16,26 @@ func (z *Zettelkasten) Draw() *engine.Queue {
 	z.rebuild()
 	z.clampSelections()
 
+	if z.panelMode() == "preview" {
+		visual := z.drawVisual()
+		q := utilities.NewQueue()
+		q.Frames = append(q.Frames, *visual)
+		q.Size = z.Bounds.Fullsize
+		return q
+	}
+
 	tags := z.drawTags()
 	overlaps := z.drawOverlaps()
 	prompt := z.drawPrompt()
-	visual := z.drawVisual()
-	seps := z.drawSeparators()
 
 	frame := z.Utilities.MergeFrames(*tags, *overlaps)
 	frame = z.Utilities.MergeFrames(frame, *prompt)
-	frame = z.Utilities.MergeFrames(frame, *visual)
-	frame = z.Utilities.MergeFrames(frame, seps)
+	if z.panelMode() == "both" {
+		visual := z.drawVisual()
+		seps := z.drawSeparators()
+		frame = z.Utilities.MergeFrames(frame, *visual)
+		frame = z.Utilities.MergeFrames(frame, seps)
+	}
 
 	q := utilities.NewQueue()
 	q.Frames = append(q.Frames, frame)
@@ -43,11 +53,18 @@ func (z *Zettelkasten) layout() (zettelRect, zettelRect, zettelRect, zettelRect)
 		w = 1
 	}
 
+	if z.panelMode() == "preview" {
+		return zettelRect{}, zettelRect{}, zettelRect{}, zettelRect{X: z.Bounds.Pos[0], Y: y, W: z.Bounds.Size[0], H: h}
+	}
+
 	leftW := w / 4
+	if z.panelMode() == "list" {
+		leftW = w
+	}
 	if leftW < 24 {
 		leftW = 24
 	}
-	if leftW > w-10 {
+	if z.panelMode() == "both" && leftW > w-10 {
 		leftW = w / 2
 	}
 	if leftW < 1 {
@@ -77,6 +94,15 @@ func (z *Zettelkasten) layout() (zettelRect, zettelRect, zettelRect, zettelRect)
 		visual.W = 1
 	}
 	return tags, notes, prompt, visual
+}
+
+func (z *Zettelkasten) panelMode() string {
+	switch z.PanelMode {
+	case "list", "preview", "both":
+		return z.PanelMode
+	default:
+		return "both"
+	}
 }
 
 func (z *Zettelkasten) drawTags() *engine.Frame {

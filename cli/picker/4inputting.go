@@ -29,6 +29,9 @@ func (p *Picker) Input(newinput *routines.Input) {
 	case "ctrl+down":
 		p.scrollPreview(1)
 
+	case "ctrl+p":
+		p.cyclePanelMode()
+
 	case "char":
 		p.Prompt += string(newinput.Char)
 		p.Selected = 0
@@ -53,6 +56,17 @@ func (p *Picker) Input(newinput *routines.Input) {
 
 	case "ctrl+right":
 		p.cycleScope()
+	}
+}
+
+func (p *Picker) cyclePanelMode() {
+	switch p.PanelMode {
+	case "list":
+		p.PanelMode = "preview"
+	case "preview":
+		p.PanelMode = "both"
+	default:
+		p.PanelMode = "list"
 	}
 }
 

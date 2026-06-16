@@ -2441,11 +2441,26 @@ type pickerRect struct {
 }
 
 func (p *Picker) pickerUsePreview() bool {
+	if p.panelMode() == "list" {
+		return false
+	}
+	if p.panelMode() == "preview" {
+		return true
+	}
 	if len(p.Bounds.Size) < 2 {
 		return false
 	}
 
 	return p.Bounds.Size[0] >= 70 && p.Bounds.Size[1] >= 12
+}
+
+func (p *Picker) panelMode() string {
+	switch p.PanelMode {
+	case "list", "preview", "both":
+		return p.PanelMode
+	default:
+		return "both"
+	}
 }
 
 func (p *Picker) pickerLayout() (pickerRect, pickerRect, pickerRect) {
@@ -2472,6 +2487,10 @@ func (p *Picker) pickerLayout() (pickerRect, pickerRect, pickerRect) {
 	}
 
 	sepH := 0
+
+	if p.panelMode() == "preview" {
+		return pickerRect{}, pickerRect{}, pickerRect{X: x, Y: y, W: w, H: h}
+	}
 
 	if p.pickerUsePreview() {
 		leftW := w / 2

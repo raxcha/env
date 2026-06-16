@@ -28,6 +28,7 @@ type Zettelkasten struct {
 	SelectedOverlap int
 	Focus           string // tags, overlaps
 	Prompt          string
+	PanelMode       string
 
 	On    bool
 	Float bool

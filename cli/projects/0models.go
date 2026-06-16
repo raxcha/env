@@ -18,10 +18,11 @@ type Projects struct {
 	ProjectsPage *filesystem.Page
 	EventsPage   *filesystem.Page
 
-	Items    []*ProjectItem
-	Selected int
-	Prompt   string
-	Context  ProjectContext
+	Items     []*ProjectItem
+	Selected  int
+	Prompt    string
+	PanelMode string
+	Context   ProjectContext
 
 	On    bool
 	Float bool

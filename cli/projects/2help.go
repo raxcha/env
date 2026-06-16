@@ -774,6 +774,20 @@ func (p *Projects) layout() (projectRect, projectRect, projectRect) {
 	promptH := 1
 	sepH := 0
 
+	if p.panelMode() == "preview" {
+		return projectRect{}, projectRect{}, projectRect{X: x, Y: y, W: w, H: h}
+	}
+
+	if p.panelMode() == "list" {
+		itemsH := h - promptH - sepH
+		if itemsH < 1 {
+			itemsH = 1
+		}
+		items := projectRect{X: x, Y: y, W: w, H: itemsH}
+		prompt := projectRect{X: x, Y: y + itemsH + sepH, W: w, H: promptH}
+		return items, prompt, projectRect{}
+	}
+
 	leftW := w / 3
 	if leftW < 24 {
 		leftW = 24
@@ -800,6 +814,15 @@ func (p *Projects) layout() (projectRect, projectRect, projectRect) {
 	preview := projectRect{X: x + leftW + 1, Y: y, W: previewW, H: h}
 
 	return items, prompt, preview
+}
+
+func (p *Projects) panelMode() string {
+	switch p.PanelMode {
+	case "list", "preview", "both":
+		return p.PanelMode
+	default:
+		return "both"
+	}
 }
 
 func cutLines(height int, selected int, total int) int {

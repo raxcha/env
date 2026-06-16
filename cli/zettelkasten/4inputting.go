@@ -27,6 +27,9 @@ func (z *Zettelkasten) Input(input *routines.Input) {
 	case "tab":
 		z.toggleFocus()
 
+	case "ctrl+p":
+		z.cyclePanelMode()
+
 	case "enter", "ctrl+enter":
 		if z.Focus == "overlaps" {
 			z.selectOverlapAsTag()
@@ -40,6 +43,17 @@ func (z *Zettelkasten) Input(input *routines.Input) {
 		z.SelectedTag = 0
 		z.SelectedOverlap = 0
 		z.rebuild()
+	}
+}
+
+func (z *Zettelkasten) cyclePanelMode() {
+	switch z.PanelMode {
+	case "list":
+		z.PanelMode = "preview"
+	case "preview":
+		z.PanelMode = "both"
+	default:
+		z.PanelMode = "list"
 	}
 }
 

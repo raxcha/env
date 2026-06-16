@@ -20,6 +20,9 @@ func (p *Projects) Input(newinput *routines.Input) {
 	case "down":
 		p.moveVertical(-1)
 
+	case "ctrl+p":
+		p.cyclePanelMode()
+
 	case "char":
 		p.Prompt += string(newinput.Char)
 
@@ -39,6 +42,17 @@ func (p *Projects) Input(newinput *routines.Input) {
 
 	case "left":
 		p.goBack()
+	}
+}
+
+func (p *Projects) cyclePanelMode() {
+	switch p.PanelMode {
+	case "list":
+		p.PanelMode = "preview"
+	case "preview":
+		p.PanelMode = "both"
+	default:
+		p.PanelMode = "list"
 	}
 }
 

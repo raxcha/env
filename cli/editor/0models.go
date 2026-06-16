@@ -25,9 +25,10 @@ type Editor struct {
 	Redo           []EditorState
 	Clipboard      []string
 
-	Numbers bool
-	Wrap    bool
-	Zenmode bool
+	Numbers   bool
+	Wrap      bool
+	Zenmode   bool
+	PanelMode string
 
 	On    bool
 	Float bool

@@ -32,7 +32,11 @@ func (e Editor) Draw() *engine.Queue {
 	w := e.Bounds.ActualSize[0]
 	h := e.Bounds.ActualSize[1]
 
-	sidebarActive := e.Sidebar != nil && e.Sidebar.On && e.Sidebar.Switch && !e.Zenmode && e.Bounds.Mode != "fibonacci"
+	if e.panelMode() == "sidebar" {
+		return e.drawSidebarPanelOnly()
+	}
+
+	sidebarActive := e.panelMode() == "whole" && e.Sidebar != nil && e.Sidebar.On && e.Sidebar.Switch && !e.Zenmode && e.Bounds.Mode != "fibonacci"
 
 	displayContent := e.Content
 	displayCursor := e.Cursor
@@ -226,6 +230,25 @@ func (e Editor) Draw() *engine.Queue {
 	q.Frames = append(q.Frames, finalframe)
 	q.Size = e.Bounds.Fullsize
 	return q
+}
+
+func (e Editor) drawSidebarPanelOnly() *engine.Queue {
+	if e.Sidebar == nil || e.Bounds == nil || len(e.Bounds.ActualSize) < 2 || len(e.Bounds.ActualPos) < 2 || len(e.Bounds.Fullsize) < 2 {
+		return utilities.NewQueue()
+	}
+
+	original := e.Sidebar.Bounds
+	copy := original
+	copy.Fullsize = e.Bounds.Fullsize
+	copy.Pos = e.Bounds.ActualPos
+	copy.Size = e.Bounds.ActualSize
+	copy.ActualPos = e.Bounds.ActualPos
+	copy.ActualSize = e.Bounds.ActualSize
+	e.Sidebar.Bounds = copy
+	q := e.Sidebar.Draw()
+	e.Sidebar.Bounds = original
+
+	return &q
 }
 
 var metadata = `^\s*[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*\s*:`

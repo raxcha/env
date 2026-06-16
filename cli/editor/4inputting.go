@@ -13,6 +13,16 @@ func (e *Editor) Input(newinput *routines.Input) {
 		return
 	}
 
+	if newinput.Key == "ctrl+p" {
+		e.cyclePanelMode()
+		return
+	}
+
+	if e.panelMode() == "sidebar" && e.Sidebar != nil {
+		e.Sidebar.Input(newinput)
+		return
+	}
+
 	if e.Sidebar != nil && e.Sidebar.On && e.Sidebar.Switch {
 		switch newinput.Key {
 		case "up", "down", "left", "right", "enter", "ctrl+enter":
@@ -156,6 +166,31 @@ func (e *Editor) Input(newinput *routines.Input) {
 
 	}
 
+}
+
+func (e *Editor) cyclePanelMode() {
+	switch e.PanelMode {
+	case "sidebar":
+		e.PanelMode = "editor"
+	case "editor":
+		e.PanelMode = "whole"
+	default:
+		e.PanelMode = "sidebar"
+	}
+
+	if e.PanelMode == "sidebar" && e.Sidebar != nil {
+		e.Sidebar.Switch = true
+		e.Sidebar.RequestSelectedPreview()
+	}
+}
+
+func (e *Editor) panelMode() string {
+	switch e.PanelMode {
+	case "sidebar", "editor", "whole":
+		return e.PanelMode
+	default:
+		return "whole"
+	}
 }
 
 func (e *Editor) undoAndRestore() {

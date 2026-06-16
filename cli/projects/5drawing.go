@@ -14,14 +14,24 @@ func (p *Projects) Draw() *engine.Queue {
 
 	p.updateItems()
 
+	if p.panelMode() == "preview" {
+		preview := p.drawPreview()
+		q := utilities.NewQueue()
+		q.Frames = append(q.Frames, *preview)
+		q.Size = p.Bounds.Fullsize
+		return q
+	}
+
 	items := p.drawItems()
 	prompt := p.drawPrompt()
-	preview := p.drawPreview()
-	seps := p.drawSeparators()
 
 	frame := p.Utilities.MergeFrames(*items, *prompt)
-	frame = p.Utilities.MergeFrames(frame, *preview)
-	frame = p.Utilities.MergeFrames(frame, seps)
+	if p.panelMode() == "both" {
+		preview := p.drawPreview()
+		seps := p.drawSeparators()
+		frame = p.Utilities.MergeFrames(frame, *preview)
+		frame = p.Utilities.MergeFrames(frame, seps)
+	}
 
 	q := utilities.NewQueue()
 	q.Frames = append(q.Frames, frame)

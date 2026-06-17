@@ -138,7 +138,7 @@ func (t *Tabs) drawFibonacciFrame(timeout int) engine.Frame {
 		style := tabsInlineStyle(i)
 		line := style + centerVisible(t.Parent.GetUtilities(), label, w)
 		if selected {
-			line = style + selectedTabText(centerVisible(t.Parent.GetUtilities(), label, w))
+			line = style + selectedTabLine(centerVisible(t.Parent.GetUtilities(), label, w))
 		}
 		line += "¤ "
 
@@ -194,4 +194,11 @@ func tabsSelectedStyle() string {
 
 func selectedTabText(value string) string {
 	return " ‹b ¤8f " + strings.TrimSpace(value) + " ¤ ›b "
+}
+
+func selectedTabLine(value string) string {
+	left := len(value) - len(strings.TrimLeft(value, " "))
+	right := len(value) - len(strings.TrimRight(value, " "))
+	text := strings.TrimSpace(value)
+	return strings.Repeat(" ", left) + "‹b ¤8f " + text + "¤8F ›b " + strings.Repeat(" ", right)
 }

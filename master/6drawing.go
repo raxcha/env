@@ -23,13 +23,13 @@ func (m *Master) Draw() {
 		}
 	}
 
-	if m.Tabs.On {
-		queues = append(queues, m.Tabs.Draw())
-	}
 	if m.Mode == "fibonacci" {
 		if q := m.fibonacciDividersQueue(); len(q.Frames) > 0 {
 			queues = append(queues, q)
 		}
+	}
+	if m.Tabs.On {
+		queues = append(queues, m.Tabs.Draw())
 	}
 	if m.Menu.On {
 		queues = append(queues, m.Menu.Draw())

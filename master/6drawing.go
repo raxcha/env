@@ -521,7 +521,7 @@ const emptyBackgroundArtFrameOne = "" +
 	"      \"` `^    "
 
 const emptyBackgroundArtFrameTwo = "" +
-	"        _:,,._\n" +
+	"        _,,,._\n" +
 	"     ,d$$$$$SSIi:.\n" +
 	"   ,$$$SSSSS$$$S$Ii::\n" +
 	"  d$$$$SSSS$$$$SSiiI:.\n" +

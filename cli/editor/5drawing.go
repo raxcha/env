@@ -119,7 +119,7 @@ func (e Editor) Draw() *engine.Queue {
 	}
 
 	editorH := h
-	showHeader := !previewingSidebar && displayCursor[1] <= 0
+	showHeader := !previewingSidebar
 	showFooter := !previewingSidebar && displayCursor[1] >= len(displayContent)-1
 	headerH := 0
 	footerH := 0
@@ -140,7 +140,7 @@ func (e Editor) Draw() *engine.Queue {
 	lines = lines[start:min(start+contentH, len(lines))]
 	contentRows := len(lines)
 	if showHeader {
-		lines = append([]string{e.shiftHeaderLine(e.headerLine(w+2, e.cursorIsOnHeader(), e.Cursor[0]), w)}, lines...)
+		lines = append([]string{"§8B0 " + strings.Repeat(" ", w)}, lines...)
 	}
 	if footerH > 0 {
 		lines = append(lines, "§A80 "+strings.Repeat(" ", w))
@@ -227,6 +227,25 @@ func (e Editor) Draw() *engine.Queue {
 			0,
 		)
 		finalframe = e.Utilities.MergeFrames(*footerframe, finalframe)
+	}
+
+	if showHeader {
+		headerX := lineX
+		headerW := w
+		if e.Numbers && !e.Zenmode {
+			shift := 2
+			if shift > lineX-x {
+				shift = lineX - x
+			}
+			headerX -= shift
+			headerW += shift
+		}
+		headerframe := e.Utilities.GenerateFrame(
+			engine.Boundaries{Fullsize: e.Bounds.Fullsize, Pos: routines.Bound{headerX, y}, Size: routines.Bound{headerW, 1}},
+			[]string{e.shiftHeaderLine(e.headerLine(headerW+2, e.cursorIsOnHeader(), e.Cursor[0]), headerW)},
+			0,
+		)
+		finalframe = e.Utilities.MergeFrames(*headerframe, finalframe)
 	}
 
 	if sidebarActive {

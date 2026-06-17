@@ -125,9 +125,29 @@ func (p *Projects) drawPreview() *engine.Frame {
 		h = 1
 	}
 
-	lines := []string{}
+	innerW := w - 2
+	if innerW < 1 {
+		innerW = 1
+	}
+	innerH := h - 2
+	if innerH < 1 {
+		innerH = 1
+	}
+
+	content := []string{}
 	for _, line := range p.previewLines() {
-		lines = append(lines, p.fitLine(line, w))
+		content = append(content, p.fitLine(line, innerW))
+	}
+	for len(content) < innerH {
+		content = append(content, p.fitLine("", innerW))
+	}
+	if len(content) > innerH {
+		content = content[:innerH]
+	}
+
+	lines := []string{p.fitLine("", w)}
+	for _, line := range content {
+		lines = append(lines, p.fitLine(" "+line+" ", w))
 	}
 	for len(lines) < h {
 		lines = append(lines, p.fitLine("", w))
@@ -170,9 +190,16 @@ func (p *Projects) drawSeparators() engine.Frame {
 
 	_, _, previewRect := p.layout()
 
-	sepX := previewRect.X - 1
-	for y := p.Bounds.Pos[1]; y < p.Bounds.Pos[1]+p.Bounds.Size[1]; y++ {
-		put(sepX, y, '│')
+	if projectsVerticalPanels(p.Bounds.Size[0], p.Bounds.Size[1]) {
+		sepY := previewRect.Y + previewRect.H
+		for x := p.Bounds.Pos[0]; x < p.Bounds.Pos[0]+p.Bounds.Size[0]; x++ {
+			put(x, sepY, '─')
+		}
+	} else {
+		sepX := previewRect.X - 1
+		for y := p.Bounds.Pos[1]; y < p.Bounds.Pos[1]+p.Bounds.Size[1]; y++ {
+			put(sepX, y, '│')
+		}
 	}
 
 	return engine.Frame{Size: p.Bounds.Fullsize, Cells: cells, Timeout: 0}

@@ -57,6 +57,43 @@ func (z *Zettelkasten) layout() (zettelRect, zettelRect, zettelRect, zettelRect)
 		return zettelRect{}, zettelRect{}, zettelRect{}, zettelRect{X: z.Bounds.Pos[0], Y: y, W: z.Bounds.Size[0], H: h}
 	}
 
+	if z.panelMode() == "both" && zettelVerticalPanels(w, h) {
+		promptH := 1
+		visualH := h / 2
+		if visualH < 1 {
+			visualH = 1
+		}
+		if visualH > h-promptH-3 {
+			visualH = h - promptH - 3
+		}
+		if visualH < 1 {
+			visualH = 1
+		}
+
+		sepH := 1
+		listH := h - visualH - sepH - promptH
+		if listH < 2 {
+			listH = 2
+		}
+
+		tagsH := listH / 2
+		if tagsH < 1 {
+			tagsH = 1
+		}
+
+		notesH := listH - tagsH - 1
+		if notesH < 1 {
+			notesH = 1
+		}
+
+		visual := zettelRect{X: x, Y: y, W: w, H: visualH}
+		tags := zettelRect{X: x, Y: y + visualH + sepH, W: w, H: tagsH}
+		notes := zettelRect{X: x, Y: tags.Y + tagsH + 1, W: w, H: notesH}
+		prompt := zettelRect{X: x, Y: y + h - 1, W: w, H: promptH}
+
+		return tags, notes, prompt, visual
+	}
+
 	leftW := w / 4
 	if z.panelMode() == "list" {
 		leftW = w
@@ -94,6 +131,10 @@ func (z *Zettelkasten) layout() (zettelRect, zettelRect, zettelRect, zettelRect)
 		visual.W = 1
 	}
 	return tags, notes, prompt, visual
+}
+
+func zettelVerticalPanels(w int, h int) bool {
+	return w < h*2
 }
 
 func (z *Zettelkasten) panelMode() string {
@@ -472,17 +513,29 @@ func (z *Zettelkasten) drawSeparators() engine.Frame {
 	}
 
 	tagsRect, notesRect, _, visualRect := z.layout()
-	sepX := visualRect.X - 1
-	for y := z.Bounds.Pos[1]; y < z.Bounds.Pos[1]+z.Bounds.Size[1]; y++ {
-		put(sepX, y, '│')
-	}
+	if zettelVerticalPanels(z.Bounds.Size[0]-1, z.Bounds.Size[1]) {
+		sepVisualY := visualRect.Y + visualRect.H
+		for x := visualRect.X; x < visualRect.X+visualRect.W; x++ {
+			put(x, sepVisualY, '─')
+		}
 
-	sepTagsY := notesRect.Y - 1
-	for x := tagsRect.X; x < tagsRect.X+tagsRect.W; x++ {
-		put(x, sepTagsY, '─')
-	}
+		sepTagsY := notesRect.Y - 1
+		for x := tagsRect.X; x < tagsRect.X+tagsRect.W; x++ {
+			put(x, sepTagsY, '─')
+		}
+	} else {
+		sepX := visualRect.X - 1
+		for y := z.Bounds.Pos[1]; y < z.Bounds.Pos[1]+z.Bounds.Size[1]; y++ {
+			put(sepX, y, '│')
+		}
 
-	put(sepX, sepTagsY, '┤')
+		sepTagsY := notesRect.Y - 1
+		for x := tagsRect.X; x < tagsRect.X+tagsRect.W; x++ {
+			put(x, sepTagsY, '─')
+		}
+
+		put(sepX, sepTagsY, '┤')
+	}
 
 	return engine.Frame{Size: z.Bounds.Fullsize, Cells: cells, Timeout: 0}
 }

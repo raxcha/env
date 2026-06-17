@@ -788,6 +788,31 @@ func (p *Projects) layout() (projectRect, projectRect, projectRect) {
 		return items, prompt, projectRect{}
 	}
 
+	if projectsVerticalPanels(w, h) {
+		previewH := h / 2
+		if previewH < 1 {
+			previewH = 1
+		}
+		if previewH > h-promptH-2 {
+			previewH = h - promptH - 2
+		}
+		if previewH < 1 {
+			previewH = 1
+		}
+
+		sepH := 1
+		itemsH := h - previewH - sepH - promptH
+		if itemsH < 1 {
+			itemsH = 1
+		}
+
+		items := projectRect{X: x, Y: y + previewH + sepH, W: w, H: itemsH}
+		prompt := projectRect{X: x, Y: y + previewH + sepH + itemsH, W: w, H: promptH}
+		preview := projectRect{X: x, Y: y, W: w, H: previewH}
+
+		return items, prompt, preview
+	}
+
 	leftW := w / 3
 	if leftW < 24 {
 		leftW = 24
@@ -814,6 +839,10 @@ func (p *Projects) layout() (projectRect, projectRect, projectRect) {
 	preview := projectRect{X: x + leftW + 1, Y: y, W: previewW, H: h}
 
 	return items, prompt, preview
+}
+
+func projectsVerticalPanels(w int, h int) bool {
+	return w < h*2
 }
 
 func (p *Projects) panelMode() string {

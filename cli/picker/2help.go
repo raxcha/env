@@ -198,6 +198,15 @@ func (p *Picker) drawPreview() *engine.Frame {
 		h = 1
 	}
 
+	innerW := w - 2
+	if innerW < 1 {
+		innerW = 1
+	}
+	innerH := h - 2
+	if innerH < 1 {
+		innerH = 1
+	}
+
 	content := []string{
 		" ...",
 	}
@@ -219,7 +228,7 @@ func (p *Picker) drawPreview() *engine.Frame {
 		p.PreviewOffset = 0
 	}
 
-	maxOffset := len(content) - h
+	maxOffset := len(content) - innerH
 	if maxOffset < 0 {
 		maxOffset = 0
 	}
@@ -239,7 +248,7 @@ func (p *Picker) drawPreview() *engine.Frame {
 	}
 
 	numberAreaW := numberW
-	contentW := w - numberAreaW - 1
+	contentW := innerW - numberAreaW - 1
 	if contentW < 1 {
 		contentW = 1
 	}
@@ -260,17 +269,28 @@ func (p *Picker) drawPreview() *engine.Frame {
 		lines = append(lines, p.fitPickerLine(styled, contentW+numberAreaW)+" ")
 	}
 
-	for len(lines) < h {
+	for len(lines) < innerH {
 		lines = append(lines, strings.Repeat(" ", numberAreaW)+p.fitPickerLine("", contentW)+" ")
 	}
 
-	if len(lines) > h {
-		lines = lines[:h]
+	if len(lines) > innerH {
+		lines = lines[:innerH]
+	}
+
+	padded := []string{p.fitPickerLine("", w)}
+	for _, line := range lines {
+		padded = append(padded, p.fitPickerLine(" "+line+" ", w))
+	}
+	for len(padded) < h {
+		padded = append(padded, p.fitPickerLine("", w))
+	}
+	if len(padded) > h {
+		padded = padded[:h]
 	}
 
 	return p.Utilities.GenerateFrame(
 		engine.Boundaries{Fullsize: p.Bounds.Fullsize, Pos: routines.Bound{previewRect.X, previewRect.Y}, Size: routines.Bound{w, h}},
-		lines,
+		padded,
 		0,
 	)
 }
@@ -2486,6 +2506,48 @@ func (p *Picker) pickerLayout() (pickerRect, pickerRect, pickerRect) {
 	}
 
 	if p.pickerUsePreview() {
+		if pickerVerticalPanels(w, h) {
+			previewH := h / 2
+			if previewH < 1 {
+				previewH = 1
+			}
+			if previewH > h-promptH-2 {
+				previewH = h - promptH - 2
+			}
+			if previewH < 1 {
+				previewH = 1
+			}
+
+			sepH := 1
+			itemsH := h - previewH - sepH - promptH
+			if itemsH < 1 {
+				itemsH = 1
+			}
+
+			items := pickerRect{
+				X: x,
+				Y: y + previewH + sepH,
+				W: w,
+				H: itemsH,
+			}
+
+			prompt := pickerRect{
+				X: x,
+				Y: y + previewH + sepH + itemsH,
+				W: w,
+				H: promptH,
+			}
+
+			preview := pickerRect{
+				X: x,
+				Y: y,
+				W: w,
+				H: previewH,
+			}
+
+			return items, prompt, preview
+		}
+
 		leftW := w / 2
 		if leftW < 24 {
 			leftW = 24
@@ -2559,6 +2621,10 @@ func (p *Picker) pickerLayout() (pickerRect, pickerRect, pickerRect) {
 	preview := pickerRect{}
 
 	return items, prompt, preview
+}
+
+func pickerVerticalPanels(w int, h int) bool {
+	return w < h*2
 }
 
 func (p *Picker) fitPickerLine(line string, width int) string {
@@ -2653,12 +2719,19 @@ func (p *Picker) drawPickerSeparators() engine.Frame {
 
 	_, _, previewRect := p.pickerLayout()
 
-	// Linha vertical entre coluna esquerda e preview.
 	if p.pickerUsePreview() {
-		sepX := previewRect.X - 1
+		if pickerVerticalPanels(p.Bounds.Size[0], p.Bounds.Size[1]) {
+			sepY := previewRect.Y + previewRect.H
 
-		for y := p.Bounds.Pos[1]; y < p.Bounds.Pos[1]+p.Bounds.Size[1]; y++ {
-			put(sepX, y, '│')
+			for x := p.Bounds.Pos[0]; x < p.Bounds.Pos[0]+p.Bounds.Size[0]; x++ {
+				put(x, sepY, '─')
+			}
+		} else {
+			sepX := previewRect.X - 1
+
+			for y := p.Bounds.Pos[1]; y < p.Bounds.Pos[1]+p.Bounds.Size[1]; y++ {
+				put(sepX, y, '│')
+			}
 		}
 	}
 

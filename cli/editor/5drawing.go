@@ -77,6 +77,7 @@ func (e Editor) Draw() *engine.Queue {
 		w = zenW
 	}
 
+	panelW := w
 	numsize := len(strconv.Itoa(len(displayContent))) + 1
 	numbersWidth := 0
 	gap := 0
@@ -142,7 +143,7 @@ func (e Editor) Draw() *engine.Queue {
 		lines = append([]string{e.shiftHeaderLine(e.headerLine(w+2, e.cursorIsOnHeader(), e.Cursor[0]), w)}, lines...)
 	}
 	if footerH > 0 {
-		lines = append(lines, editorFooterLine(w))
+		lines = append(lines, "§A80 "+strings.Repeat(" ", w))
 	}
 	for len(lines) < editorH {
 		lines = append(lines, "")
@@ -216,6 +217,16 @@ func (e Editor) Draw() *engine.Queue {
 		)
 
 		finalframe = e.Utilities.MergeFrames(*numbersframe, *linesframe)
+	}
+
+	if footerH > 0 {
+		footerY := y + headerH + contentRows
+		footerframe := e.Utilities.GenerateFrame(
+			engine.Boundaries{Fullsize: e.Bounds.Fullsize, Pos: routines.Bound{x, footerY}, Size: routines.Bound{panelW, 1}},
+			[]string{editorFooterLine(panelW)},
+			0,
+		)
+		finalframe = e.Utilities.MergeFrames(*footerframe, finalframe)
 	}
 
 	if sidebarActive {

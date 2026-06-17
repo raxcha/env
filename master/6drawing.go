@@ -330,14 +330,14 @@ func (m *Master) emptyMatrixRainQueue() engine.Queue {
 	}
 
 	columns := emptyMatrixRainColumns(w, h)
-	start := emptyBackgroundPhase(100, 240)
+	start := emptyBackgroundPhase(70, 240)
 	frames := []engine.Frame{}
 	for i := 0; i < 240; i++ {
 		step := (start + i) % 240
 		frame := m.Utilities.GenerateFrame(
 			engine.Boundaries{Fullsize: m.Size, Pos: routines.Bound{0, 0}, Size: routines.Bound{w, h}},
 			emptyMatrixRainLines(w, h, step, columns),
-			100,
+			70,
 		)
 		if frame != nil {
 			m.fadeEmptyMatrixRain(frame)

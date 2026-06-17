@@ -82,8 +82,13 @@ func (m *Master) fibonacciClientRects() []routines.Bound {
 		return rects
 	}
 
-	m.fillFibonacciRects(rects, 0, insetX, 0, w, h, true)
+	startVertical := fibonacciStartsWithVerticalSplit(w, h)
+	m.fillFibonacciRects(rects, 0, insetX, 0, w, h, startVertical)
 	return rects
+}
+
+func fibonacciStartsWithVerticalSplit(w int, h int) bool {
+	return w >= h*2
 }
 
 func (m *Master) fillFibonacciRects(rects []routines.Bound, index int, x int, y int, w int, h int, vertical bool) {

@@ -368,6 +368,7 @@ MOBILE USAGE
 *** adapt clicks keyboard with "KEY MAPPER" ...
 
 KEY MAPPING ON PHONE
+
 - arrows > meta + i l m j
   - works with ctrl ...
 - = esc > meta + q
@@ -385,20 +386,27 @@ KEY MAPPING ON PHONE
 - , ? meta + k
 - . > meta + .
 - ? > meta + o
-- ! > 
-- + > 
-- - > 
-- numbers > (normal) numberkey + ...
--  unchanged: ctrl+z, ctrl+y, ctrl+x, ctrl+d, ctrl+s, ctrl+p, ctrl+o, ctrl+p, ctrl+c, ctrl+v ...
+
+- ! > alt + v
+- - > alt + b
+- + > alt + n
+
+> > alt + t
+` > alt + y
+- > alt + u
+= > alt + g
+~ > alt + h
+
 - ctrl+space works fine ...
 - ctrl+backspace works fine ...
-- ctrl+enter does not work @ ...
-
-
+- ctrl+enter > ctrl+t (ctrl+enter)
+* unchanged: ctrl+z, ctrl+y, ctrl+x, ctrl+d, ctrl+s, ctrl+p, ctrl+o, ctrl+p, ctrl+c, ctrl+v ...
+- numbers > (normal) numberkey + ...
+- delete > meta + backspace ...
 
 
 FINE-TUNING
+
 * make it more COLORFUL ...
 - statusbar is bad ...
-
-
+- AS PROVISIONAL LIFE GOES ON ...

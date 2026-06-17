@@ -18,7 +18,6 @@ type statusSegment struct {
 	Text     string
 	Style    string
 	Priority int
-	Center   bool
 }
 
 func (s *Status) Draw() *engine.Queue {
@@ -55,22 +54,23 @@ func (s *Status) Draw() *engine.Queue {
 }
 
 func (s *Status) line(width int) string {
-	segments := []statusSegment{{Text: statusInteractionMode(s.Parent), Style: "‹b ", Priority: 0}}
-	segments = append(segments, statusTimeSegments(width)...)
+	left := []statusSegment{{Text: statusInteractionMode(s.Parent), Style: "‹b ", Priority: 0}}
+	left = append(left, statusTimeSegments(width)...)
 
 	client := focusedClient(s.Parent)
 	if client == nil {
-		segments = append(segments, statusSegment{Text: "no-client", Style: "¤88 ", Priority: 0})
-		return s.fitSegments(segments, width)
+		return s.fitStatusZones(left, statusSegment{Text: "no-client", Style: "¤88 ", Priority: 0}, []statusSegment{s.screenSizeSegment()}, width)
 	}
 
-	segments = append(segments, statusSegment{
+	center := statusSegment{
 		Text:     fmt.Sprintf("%s:%s", client.GetKind(), statusSpec(client)),
 		Priority: 0,
-		Center:   true,
-	})
+	}
 
-	return s.fitSegments(segments, width)
+	right := s.clientInfoSegments(client)
+	right = append(right, s.screenSizeSegment())
+
+	return s.fitStatusZones(left, center, right, width)
 }
 
 func statusTimeSegments(width int) []statusSegment {
@@ -124,6 +124,23 @@ func statusWeekday(day time.Weekday) string {
 	}
 }
 
+func (s *Status) screenSizeSegment() statusSegment {
+	if s == nil || s.Bounds == nil || len(s.Bounds.Fullsize) < 2 {
+		return statusSegment{Text: "-", Priority: 0}
+	}
+	return statusSegment{Text: fmt.Sprintf("%dx%d", s.Bounds.Fullsize[0], s.Bounds.Fullsize[1]), Priority: 0}
+}
+
+func (s *Status) clientInfoSegments(client cli.Cli) []statusSegment {
+	if e, ok := client.(*editor.Editor); ok {
+		return s.editorInfo(e)
+	}
+	if p, ok := client.(*picker.Picker); ok {
+		return s.pickerInfo(p)
+	}
+	return nil
+}
+
 func (s *Status) editorInfo(e *editor.Editor) []statusSegment {
 	cursorX := 0
 	cursorY := 0
@@ -171,15 +188,6 @@ func focusedClient(parent cli.Parent) cli.Cli {
 	}
 
 	return clients[focus]
-}
-
-func modeFromFocused(parent cli.Parent) string {
-	client := focusedClient(parent)
-	if client == nil || client.GetBounds() == nil {
-		return ""
-	}
-
-	return client.GetBounds().Mode
 }
 
 func pageSizeBytes(path string, content []string) int {
@@ -258,95 +266,10 @@ func (s *Status) pickerInfo(p *picker.Picker) []statusSegment {
 }
 
 func (s *Status) fitSegments(segments []statusSegment, width int) string {
-	if width <= 0 {
-		return ""
-	}
-
-	right := s.rightStatusText()
-	rightW := s.visibleLength(right)
-	center := statusSegment{}
-	centerFound := false
-	leftSegments := make([]statusSegment, 0, len(segments))
-
-	for _, segment := range segments {
-		if segment.Center && !centerFound {
-			center = segment
-			centerFound = true
-			continue
-		}
-		leftSegments = append(leftSegments, segment)
-	}
-
-	if !centerFound {
-		return s.fitSegmentsFlowing(leftSegments, right, rightW, width)
-	}
-
-	centerText := renderStatusSegment(center)
-	centerW := s.visibleLength(centerText)
-	centerStart := (width - centerW) / 2
-	if centerStart < 0 {
-		centerStart = 0
-	}
-
-	rightStart := width
-	if rightW > 0 {
-		rightStart = width - rightW
-	}
-
-	leftLimit := centerStart - 2
-	if leftLimit < 0 {
-		leftLimit = 0
-	}
-
-	active := append([]statusSegment(nil), leftSegments...)
-	left := s.renderSegments(active)
-	for s.visibleLength(left) > leftLimit {
-		drop := leastImportantSegment(active)
-		if drop < 0 || active[drop].Priority <= 0 {
-			break
-		}
-		active = append(active[:drop], active[drop+1:]...)
-		left = s.renderSegments(active)
-	}
-	if s.visibleLength(left) > leftLimit && s.Utilities != nil {
-		left = s.Utilities.CutVisible(left, leftLimit)
-	}
-
-	line := left
-	pad := centerStart - s.visibleLength(line)
-	if pad < 1 {
-		pad = 1
-	}
-	line += strings.Repeat(" ", pad) + centerText
-
-	if rightW > 0 && rightW < width {
-		pad = rightStart - s.visibleLength(line)
-		if pad < 1 {
-			pad = 1
-		}
-		line += strings.Repeat(" ", pad) + right
-	}
-
-	if s.visibleLength(line) > width && s.Utilities != nil {
-		line = s.Utilities.CutVisible(line, width)
-	}
-	if pad := width - s.visibleLength(line); pad > 0 {
-		line += strings.Repeat(" ", pad)
-	}
-
-	return line
-}
-
-func (s *Status) fitSegmentsFlowing(segments []statusSegment, right string, rightW int, width int) string {
-	targetW := width
-	if rightW > 0 && rightW+1 < width {
-		targetW = width - rightW - 1
-	}
-
 	active := append([]statusSegment(nil), segments...)
 	line := s.renderSegments(active)
 
-	for s.visibleLength(line) > targetW {
+	for s.visibleLength(line) > width {
 		drop := leastImportantSegment(active)
 		if drop < 0 || active[drop].Priority <= 0 {
 			break
@@ -356,17 +279,91 @@ func (s *Status) fitSegmentsFlowing(segments []statusSegment, right string, righ
 		line = s.renderSegments(active)
 	}
 
-	if s.visibleLength(line) > targetW && s.Utilities != nil {
-		line = s.Utilities.CutVisible(line, targetW)
+	if s.visibleLength(line) > width && s.Utilities != nil {
+		line = s.Utilities.CutVisible(line, width)
 	}
 
-	if rightW > 0 && rightW < width {
-		pad := width - s.visibleLength(line) - rightW
+	if pad := width - s.visibleLength(line); pad > 0 {
+		line += strings.Repeat(" ", pad)
+	}
+
+	return line
+}
+
+func (s *Status) fitStatusZones(left []statusSegment, center statusSegment, right []statusSegment, width int) string {
+	if width <= 0 {
+		return ""
+	}
+
+	activeRight := append([]statusSegment(nil), right...)
+	leftText := s.renderSegments(left)
+	centerText := renderStatusSegment(center)
+	rightText := s.renderSegmentsInline(activeRight)
+
+	for len(activeRight) > 1 && s.visibleLength(leftText)+s.visibleLength(centerText)+s.visibleLength(rightText)+4 > width {
+		drop := leastImportantSegment(activeRight[:len(activeRight)-1])
+		if drop < 0 || activeRight[drop].Priority <= 0 {
+			break
+		}
+		activeRight = append(activeRight[:drop], activeRight[drop+1:]...)
+		rightText = s.renderSegmentsInline(activeRight)
+	}
+
+	leftW := s.visibleLength(leftText)
+	rightW := s.visibleLength(rightText)
+	centerW := s.visibleLength(centerText)
+
+	rightStart := width - rightW
+	if rightStart < 0 {
+		rightStart = 0
+	}
+
+	centerSlotStart := leftW + 2
+	centerSlotEnd := rightStart - 2
+	if centerSlotEnd < centerSlotStart {
+		centerSlotEnd = centerSlotStart
+	}
+	centerSlotW := centerSlotEnd - centerSlotStart
+
+	centerStart := centerSlotStart + (centerSlotW-centerW)/2
+	if centerStart < centerSlotStart {
+		centerStart = centerSlotStart
+	}
+
+	centerMax := centerSlotEnd - centerStart
+	if centerMax < 0 {
+		centerMax = 0
+	}
+	if centerW > centerMax && s.Utilities != nil {
+		centerText = s.Utilities.CutVisible(centerText, centerMax)
+		centerW = s.visibleLength(centerText)
+	}
+
+	line := leftText
+	if s.visibleLength(line) > width && s.Utilities != nil {
+		line = s.Utilities.CutVisible(line, width)
+	}
+
+	if centerW > 0 {
+		pad := centerStart - s.visibleLength(line)
 		if pad < 1 {
 			pad = 1
 		}
-		line += strings.Repeat(" ", pad) + right
-	} else if pad := width - s.visibleLength(line); pad > 0 {
+		line += strings.Repeat(" ", pad) + centerText
+	}
+
+	if rightW > 0 {
+		pad := rightStart - s.visibleLength(line)
+		if pad < 1 {
+			pad = 1
+		}
+		line += strings.Repeat(" ", pad) + rightText
+	}
+
+	if s.visibleLength(line) > width && s.Utilities != nil {
+		line = s.Utilities.CutVisible(line, width)
+	}
+	if pad := width - s.visibleLength(line); pad > 0 {
 		line += strings.Repeat(" ", pad)
 	}
 
@@ -387,35 +384,6 @@ func leastImportantSegment(segments []statusSegment) int {
 	return drop
 }
 
-func (s *Status) rightStatusText() string {
-	if s == nil || s.Bounds == nil || len(s.Bounds.Fullsize) < 2 {
-		return ""
-	}
-
-	size := fmt.Sprintf("%dx%d", s.Bounds.Fullsize[0], s.Bounds.Fullsize[1])
-	if s.Bounds.Fullsize[0] < 50 {
-		return statusDashToken(size)
-	}
-
-	parts := []string{}
-	if e, ok := focusedClient(s.Parent).(*editor.Editor); ok {
-		for _, segment := range s.editorInfo(e) {
-			parts = append(parts, strings.TrimSpace(segment.Text))
-		}
-	} else if p, ok := focusedClient(s.Parent).(*picker.Picker); ok {
-		for _, segment := range s.pickerInfo(p) {
-			parts = append(parts, strings.TrimSpace(segment.Text))
-		}
-	}
-
-	mode := "mode:" + nonEmpty(modeFromFocused(s.Parent), "-")
-	parts = append(parts, mode, size)
-	for i := range parts {
-		parts[i] = statusDashToken(parts[i])
-	}
-	return strings.Join(parts, "  ")
-}
-
 func (s *Status) renderSegments(segments []statusSegment) string {
 	if len(segments) == 0 {
 		return "§8F0 "
@@ -424,6 +392,22 @@ func (s *Status) renderSegments(segments []statusSegment) string {
 	var b strings.Builder
 	b.WriteString("§8F0 ")
 
+	for i, segment := range segments {
+		if i > 0 {
+			b.WriteString("  ")
+		}
+		b.WriteString(renderStatusSegment(segment))
+	}
+
+	return b.String()
+}
+
+func (s *Status) renderSegmentsInline(segments []statusSegment) string {
+	if len(segments) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
 	for i, segment := range segments {
 		if i > 0 {
 			b.WriteString("  ")

@@ -261,7 +261,7 @@ func (p *Picker) drawPreview() *engine.Frame {
 		if strings.TrimSpace(line) != "" {
 			dashedSize = editor.DashedLineVisualSize(content, i, p.Utilities)
 		}
-		styled := editor.StyleContentLine(line, false, contentW, &styleState, false, dashedSize)
+		styled := editor.StyleContentLine(line, false, contentW, &styleState, false, false, dashedSize)
 		if isDashed {
 			prefix += " "
 		}
@@ -279,7 +279,7 @@ func (p *Picker) drawPreview() *engine.Frame {
 
 	padded := []string{p.fitPickerLine("", w)}
 	for _, line := range lines {
-		padded = append(padded, p.fitPickerLine(" "+line+" ", w))
+		padded = append(padded, p.fitPickerLine(pickerInsertAfterStylePrefix(line, " ")+" ", w))
 	}
 	for len(padded) < h {
 		padded = append(padded, p.fitPickerLine("", w))

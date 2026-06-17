@@ -95,6 +95,8 @@ func (e Editor) Draw() *engine.Queue {
 	numbers := []string{}
 	lines := append([]string(nil), displayContent...)
 	rawLines := append([]string(nil), displayContent...)
+	blockFades := blockFadeLevels(rawLines)
+	cursorBlock := blockIndexForLine(rawLines, displayCursor[1])
 	state := NewPreviewStyleState()
 	colorSpecialLines := isALogEditorPath(displayPath)
 
@@ -103,7 +105,8 @@ func (e Editor) Draw() *engine.Queue {
 		if i != displayCursor[1] && dashed.MatchString(rawLines[i]) {
 			dashedSize = DashedLineVisualSize(rawLines, i, e.Utilities)
 		}
-		lines[i] = StyleContentLine(lines[i], i == displayCursor[1], w, &state, colorSpecialLines, dashedSize)
+		showBlockToken := cursorBlock >= 0 && blockIndexForLine(rawLines, i) == cursorBlock
+		lines[i] = StyleContentLine(lines[i], i == displayCursor[1], w, &state, colorSpecialLines, showBlockToken, dashedSize)
 		if previewingSidebar {
 			lines[i] = sidebarPreviewLineStyle(lines[i])
 		}
@@ -120,11 +123,15 @@ func (e Editor) Draw() *engine.Queue {
 
 	editorH := h
 	showHeader := !previewingSidebar
-	showFooter := !previewingSidebar && displayCursor[1] >= len(displayContent)-1
+	showFooter := false
 	headerH := 0
 	footerH := 0
 	if showHeader && editorH > headerH+footerH {
 		headerH = 1
+	}
+	if !previewingSidebar {
+		fitsWithFooter := len(displayContent) <= editorH-headerH-1
+		showFooter = displayCursor[1] >= len(displayContent)-1 || fitsWithFooter
 	}
 	if showFooter && editorH > headerH+footerH {
 		footerH = 1
@@ -138,6 +145,7 @@ func (e Editor) Draw() *engine.Queue {
 	start := CutLines(contentH, selected, len(lines))
 
 	lines = lines[start:min(start+contentH, len(lines))]
+	contentRowFades := contentFadeRows(lines, blockFades, start, w)
 	contentRows := len(lines)
 	if showHeader {
 		lines = append([]string{"§8B0 " + strings.Repeat(" ", w)}, lines...)
@@ -218,6 +226,7 @@ func (e Editor) Draw() *engine.Queue {
 
 		finalframe = e.Utilities.MergeFrames(*numbersframe, *linesframe)
 	}
+	applyEditorBlockFades(&finalframe, lineX, y+headerH, w, contentRowFades)
 
 	if footerH > 0 {
 		footerY := y + headerH + contentRows
@@ -285,6 +294,7 @@ var metadata = `^\s*[A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)*\s*:`
 var hashtag = `#[^\s,.;:!?()\[\]{}"']+`
 var tags = `@[^\s,.;:!?()\[\]{}"']+`
 var measurements = `!\d+\b`
+var blockFadeToken = regexp.MustCompile(`!!([0-9])`)
 var timestamps = `\b(?:\d{2}\.\d{2}\.\d{4}|\d{2}:\d{2})\b`
 var dashed = regexp.MustCompile(`^\s*-+\s*$`)
 
@@ -308,13 +318,16 @@ func isALogEditorPath(path string) bool {
 	return path == "a.log" || strings.HasPrefix(path, "a.log/")
 }
 
-func StyleContentLine(raw string, current bool, width int, state *PreviewStyleState, colorSpecialLines bool, dashedSize ...int) string {
+func StyleContentLine(raw string, current bool, width int, state *PreviewStyleState, colorSpecialLines bool, showBlockToken bool, dashedSize ...int) string {
 	if state == nil {
 		initial := NewPreviewStyleState()
 		state = &initial
 	}
 
 	line := raw
+	if !showBlockToken {
+		line = blockFadeToken.ReplaceAllString(line, "")
+	}
 	isBlockHeader := len(raw) > 0 && strings.ContainsRune(">`~=", rune(raw[0]))
 	isDashSpecialLine := strings.HasPrefix(raw, "--")
 	isTildeSpecialLine := strings.HasPrefix(raw, "~~")
@@ -416,6 +429,137 @@ func StyleContentLine(raw string, current bool, width int, state *PreviewStyleSt
 	}
 
 	return prefix + line
+}
+
+func blockFadeLevels(lines []string) []float64 {
+	out := make([]float64, len(lines))
+	for i := 0; i < len(lines); {
+		if isLogBlockBoundaryLine(lines[i]) {
+			i++
+			continue
+		}
+
+		end := i + 1
+		for end < len(lines) && !isLogBlockBoundaryLine(lines[end]) {
+			end++
+		}
+
+		fade := blockFadeAmount(lines[i:end])
+		if fade > 0 {
+			for j := i; j < end; j++ {
+				out[j] = fade
+			}
+		}
+
+		i = end
+	}
+
+	return out
+}
+
+func blockIndexForLine(lines []string, target int) int {
+	if target < 0 || target >= len(lines) || isLogBlockBoundaryLine(lines[target]) {
+		return -1
+	}
+
+	block := 0
+	for i := 0; i < len(lines); {
+		if isLogBlockBoundaryLine(lines[i]) {
+			i++
+			continue
+		}
+
+		end := i + 1
+		for end < len(lines) && !isLogBlockBoundaryLine(lines[end]) {
+			end++
+		}
+
+		if target >= i && target < end {
+			return block
+		}
+
+		block++
+		i = end
+	}
+
+	return -1
+}
+
+func blockFadeAmount(lines []string) float64 {
+	for _, line := range lines {
+		match := blockFadeToken.FindStringSubmatch(line)
+		if len(match) < 2 {
+			continue
+		}
+
+		value := int([]rune(match[1])[0] - '0')
+		return (1 - float64(value)/9) * 0.82
+	}
+
+	return 0
+}
+
+func contentFadeRows(lines []string, fades []float64, start int, width int) []float64 {
+	rows := []float64{}
+	if width < 1 {
+		width = 1
+	}
+
+	for i, line := range lines {
+		idx := start + i
+		fade := 0.0
+		if idx >= 0 && idx < len(fades) {
+			fade = fades[idx]
+		}
+
+		visual := VisibleLength(line)
+		count := (visual + width - 1) / width
+		if count < 1 {
+			count = 1
+		}
+		for range count {
+			rows = append(rows, fade)
+		}
+	}
+
+	return rows
+}
+
+func applyEditorBlockFades(frame *engine.Frame, x int, y int, w int, fades []float64) {
+	if frame == nil || len(frame.Size) < 2 || w <= 0 {
+		return
+	}
+
+	fullW := frame.Size[0]
+	fullH := frame.Size[1]
+	for row, fade := range fades {
+		if fade <= 0 {
+			continue
+		}
+
+		screenY := y + row
+		if screenY < 0 || screenY >= fullH {
+			continue
+		}
+
+		for screenX := x; screenX < x+w && screenX < fullW; screenX++ {
+			if screenX < 0 {
+				continue
+			}
+			idx := screenY*fullW + screenX
+			if idx < 0 || idx >= len(frame.Cells) {
+				continue
+			}
+
+			cell := &frame.Cells[idx]
+			if !cell.Visible || cell.Fg == nil || cell.Bg == nil {
+				continue
+			}
+
+			fg := utilities.MixRGB(*cell.Fg, *cell.Bg, fade)
+			cell.Fg = &fg
+		}
+	}
 }
 
 func wrapRegexMatches(str string, pattern string, before string, after string) (string, error) {

@@ -59,7 +59,7 @@ func (s *Status) line(width int) string {
 
 	client := focusedClient(s.Parent)
 	if client == nil {
-		return s.fitStatusZones(left, statusSegment{Text: "no-client", Style: "¤88 ", Priority: 0}, []statusSegment{s.screenSizeSegment()}, width)
+		return s.fitStatusZones(left, statusSegment{Text: "prsnl.spc", Priority: 0}, []statusSegment{s.screenSizeSegment()}, width)
 	}
 
 	center := statusSegment{

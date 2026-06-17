@@ -6,7 +6,7 @@ import (
 )
 
 func (u *Utilities) MergeQueues(queues ...engine.Queue) engine.Queue {
-	
+
 	validQueues := make([]engine.Queue, 0, len(queues))
 	for _, q := range queues {
 		if len(q.Frames) > 0 {
@@ -37,11 +37,13 @@ func (u *Utilities) MergeQueues(queues ...engine.Queue) engine.Queue {
 		} else {
 			states[i].isFinished = true
 		}
-		if queues[i].Cycle { anyCycle = true }
+		if queues[i].Cycle {
+			anyCycle = true
+		}
 	}
 
 	var resultFrames []engine.Frame
-	maxIterations := 200
+	maxIterations := 1200
 
 	for i := 0; i < maxIterations; i++ {
 
@@ -69,12 +71,12 @@ func (u *Utilities) MergeQueues(queues ...engine.Queue) engine.Queue {
 		}
 
 		finalFrame := queues[0].Frames[states[0].frameIdx]
-		
+
 		for j := 1; j < len(queues); j++ {
 			// MergeFrames(topo, fundo)
 			finalFrame = u.MergeFrames(queues[j].Frames[states[j].frameIdx], finalFrame)
 		}
-		
+
 		finalFrame.Timeout = minStep
 		resultFrames = append(resultFrames, finalFrame)
 

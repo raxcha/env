@@ -383,7 +383,7 @@ KEY MAPPING ON PHONE
 - ^ > meta + v
 - @ > meta + b
 - # > meta + n
-- / > 
+- / > ...
 - , ? meta + k
 - . > meta + .
 - ? > meta + o
@@ -408,6 +408,162 @@ KEY MAPPING ON PHONE
 FINE-TUNING
 - statusbar is FiXED ...
 * make it more GRAYSCALE ...
-- 
+- ASCII ART WHEN NO CLIENT ...
 
 PROVISIONAL LIFE
+...
+
+ASCII SKULL FOR EMPTY ENV
+(manually extracted)
+
+first frame
+       _,,._
+    ,d$$$$$SIi:.
+  ,$$$SSSS$$SSIi:.
+ j$$$$SSSS$$$SIIi:.
+.S$$$$SS$$$$$SSIi:.
+j?ᵒ`‾`?S$SI7ᵒ"ᵃ?IL:.
+?:     $$S?     `?i'
+iL    j$?$k.     I7
+$$$b%d$'  `$b,_.dS:  
+?SSIiS?    S$?I?$Si 
+ ‾`?IS$L_,d$SIi:`ᵃ'     
+    ?$$$SS$SIi'       
+    j:?i:i?.:·:       
+      "` `^      
+
+second frame
+        _:,,._
+     ,d$$$$$SSIi:.
+   ,$$$SSSSS$$$S$Ii::
+  d$$$$SSSS$$$$SSiiI:.
+ d$$$$SS$$$$$SSSi:iII:.
+ jᵒ`^?SSI7ᵒ"ᵃ?IL:iiISIi:
+ ?   :$I?     ?$:iIS$I:.
+jL _,$?$L     j7b:iISi:
+?$d$'  `$b,_,d$$$:iIi?
+i$$:    S$?I?$$$S%u.?'
+ ‾?L_,d$SIi:`ᵃ?S?ᵃ` '
+  I$$$S$$SIi'     ,'
+  :i?i:i?.i.
+      "` `^
+
+third frame
+           _.,,._
+      _,oS$$$$$SSIi:,_
+    ,d$$$$$$$S$$$SSISi:.
+   ,$$$$$SSSS$$$$SIISSIi:.
+  j$$$$SS$$$$$$SIISS$$SIi:
+ ."I7‾`ᵒᵃ$$iI$SiIS$$$$SIi:
+ `.jI    `?L:iIIS$$$$SII:.
+ ,ᵃ$$.    j$b:iIS$$S?iIi:.
+ ? i$L,_.d$d$:ijSSSIiSi:.
+ i.j$S?S$$$$S%u,ᵒ?iISi::.
+,d$$SIi?ᵃ?$S?ᵃ`   ‾`‾.:'
+i$$SI$$k.         ..'
+:?::.i?·^
+
+fourth frame
+            _.,,,._
+       .,uS$$$$$$$SSi:,_
+     ,d$$S$$$$S$$$SS$SIi:.
+    j$S$$S7IS$$S$$$$S$SIi::
+   d$$$7iIS$$$$$$SS$$SIIi:.
+  $$$7:iIS$S$$$SIS$$$$SIi::
+  j ?k:iISIS$S&IS$$$SSIIi::
+.d? j$b:iIj$$S7IIS$$S7IIi::.
+`$$u$$7.:j$$SiiIS$$$SIIIi::.
+ biS$S$p,._?%u,`?S$SSIIi::.
+d$$$Si?ᵃ?$S?ᵃ"`^"4ISIii::.
+ᵃ?$$k.           .?7I:.
+^:?i:"`          .·'‾
+
+fifth frame
+           _.,,,._
+      .,oS$$$$$$$SSi:,_
+    ,d$$S$$$$S$$$$SSSIi:.
+   j$S$$$$$S$$S$$$$$$Sli::
+  j$$$$$$SS$$$$$$$S$$SSII:.
+ j$7iIS$$$$S$$$$$$IS$$SIi::
+d$7:jS$SIiIS$$$$$SS$$$Si::.
+?7.j$$Siid$$$$$$SS$$$S7i::.
+j:.?$liid$$$$SIS$$$SSSIi::.
+$k,_`$IS$$$$SIIS$$$SSIii:.
+?'  ‾`ᵒᵃ$S?ᵃ::::iISSii::.
+ k.·:'   i7   ··::::::··
+ ``      "'`
+
+sixth frame
+        _.,,._
+     ,d$$$$$SSi:,
+ a,d$S$$$$$$$$SSIi:.
+ dS$$$$$S$$S$$$$$SIk.
+:S$$$$SS$$$$$$$$$$SIi
+IS$$$$$S$$$$$$$$$SIi:
+SS$$$$$7S$$$$$S$$SLi·
+?$$$$$7jSS$$$$S$SIi:
+ji$$S&j$Si?S$$SSIi:·
+?$IuiI$$$Ski?S7Ii:·' 
+ ?\Sbp.`ᵒᵃ?S$7':i:·
+ ? "‾ ·:::. .::..
+
+seventh frame
+          _.,,._
+      ,uS$$$$$SSIi:,
+   ,d$$S$$$$$$$$$$SIi:.
+  dIS$$$$$$$$S$$$$$SSSik
+ jIS$$$$$$$$$$$$$$$$SIiiL
+·IIS$$$$$S$$$$$$$$$$SI:?$
+:iS$$$$$$7S$$$$SS$$SIii:?k
+:iS$$$$$7jIS$$$$SS$SIS::·?
+·iIS$$S7j$SI?S$$$SSii7 · L
+ :iS$SSi$$$SL`?S$SIi?_·o$$
+  ?ISi7 `ᵒᵃ?Sb,`ᵃᵒ'‾`  _`"
+   ᵃ?ᵃ'··:::·`?S$i'  · :
+           ··  `?'
+
+eigth frame
+          _.,,._
+     _,dS$$$$$SSIi:,
+   ,dS$S$$$$$$$$SSSIi:.
+  dIS$$$$$$$$S$$$$SSSSIk
+ dIS$$$$$$$$$$$$$$$SSSiiL
+iLSS$$$$SS$$$$$$$$$SSIi?$k
+SiSS$$S$SSS$$$$S$$SSIIi:S?
+iiS$$$$ISSIS$$$$SSSIIi?·j.
+:iIS$SIIS$SI?S$$SIIi i7'jI$:
+ :iISSiiiS$SLi?SI ?ᵃ',od$S$
+  ·:iSi:?S$SI?'ᵃᵒ'‾`^ᵒᵃ?Sk
+    `ᵒᵃ.:?S$Si      ·::iI$$
+          `ᵒᵃ'        ".ᵃ:'
+
+nineth frame
+        _.,,,._
+    _,d$$$$$$S$Sik,
+  ,i$$S$$$$$$$$SSSIk:
+ dISS$$$$$$$SS$$$$SSIk
+jIS$$$$$$$$$SIIS$$$SSIk
+SSS$$$$SS$$SSIIi$$S7ᵃ??k
+?SS$$$$$$SSSIi:d$'   :?
+:SS$$$$$SSIi::j$S    j$7
+ ?IS$$SSIi::.,?$$$up%?$'
+  ?ISIb,‾`ᵒ"?S$$ᵃᵒ‾,d$'
+   `ᵒ?$?'    `?ᵃk.:iIS$$k.
+                `?.:iI$$i
+                 "."ᵃ ^ '
+
+tenth frame
+         _.,,._
+     _,d$$$$$$$$b.
+   ,d$S$$$$S$$$$SSb.
+  dSS$SIS$$$$$$$$$Sib
+ jIS$$SII$$$$$$$$$S$Sk
+ SI$$IIiid$$S?iI$$$S7ᵃk.
+:iS$IIi:j7'     ?$S?   i
+.iSSI:::$$      j$$L   ?
+ :?i:.,d$$k,_.,d$$7‾?p,$
+  iI:`ᵃ?$$$SS?I?$$7  $$?
+   ?:.  ?S$$SII$$L.,J$"'
+    `.   ‾  :IS$S$$$Sk
+            .:i?i:?:.?
+                 "` `

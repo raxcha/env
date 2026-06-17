@@ -32,4 +32,6 @@ type Master struct {
 	Profile string
 	Focus   int
 	Clients []cli.Cli
+
+	EmptySkullDirection int
 }

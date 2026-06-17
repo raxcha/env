@@ -41,8 +41,8 @@ func (s *Sidebar) idealWidth(total int) int {
 		}
 	}
 
-	width := maxLabel + 2
-	minW := 12
+	width := maxLabel + 5
+	minW := 16
 	maxW := total / 2
 	if maxW < minW {
 		maxW = total

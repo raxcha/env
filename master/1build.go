@@ -36,6 +36,8 @@ func CreateMasterWithStage(arg string, stage string) *Master {
 		Profile: startupProfile(),
 		Focus:   0,
 		Clients: []cli.Cli{},
+
+		EmptySkullDirection: randomEmptySkullDirection(),
 	}
 
 	m.Routines = routines.CreateRoutines()

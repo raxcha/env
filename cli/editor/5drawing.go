@@ -258,6 +258,9 @@ func (e Editor) Draw() *engine.Queue {
 	}
 
 	if sidebarActive {
+		divider := e.drawSidebarDivider()
+		finalframe = e.Utilities.MergeFrames(divider, finalframe)
+
 		sidebarframe := e.Sidebar.Draw()
 
 		if len(sidebarframe.Frames) > 0 {
@@ -269,6 +272,57 @@ func (e Editor) Draw() *engine.Queue {
 	q.Frames = append(q.Frames, finalframe)
 	q.Size = e.Bounds.Fullsize
 	return q
+}
+
+func (e Editor) drawSidebarDivider() engine.Frame {
+	if e.Bounds == nil || len(e.Bounds.Fullsize) < 2 || len(e.Bounds.ActualPos) < 2 || len(e.Bounds.ActualSize) < 2 || e.Sidebar == nil || len(e.Sidebar.Bounds.ActualSize) < 1 {
+		return engine.Frame{}
+	}
+
+	fullW := e.Bounds.Fullsize[0]
+	fullH := e.Bounds.Fullsize[1]
+	if fullW <= 0 || fullH <= 0 {
+		return engine.Frame{}
+	}
+
+	theme := e.Utilities.Theme
+	if theme == nil {
+		bg := engine.RGB{}
+		fg := engine.RGB{R: 90, G: 90, B: 90}
+		return sidebarDividerFrame(e.Bounds.Fullsize, e.Bounds.ActualPos, e.Bounds.ActualSize, e.Sidebar.Bounds.ActualSize[0], fg, bg)
+	}
+
+	bg := theme.Background
+	fg := utilities.MixRGB(theme.Background, theme.Foreground, 0.28)
+	return sidebarDividerFrame(e.Bounds.Fullsize, e.Bounds.ActualPos, e.Bounds.ActualSize, e.Sidebar.Bounds.ActualSize[0], fg, bg)
+}
+
+func sidebarDividerFrame(fullsize routines.Bound, pos routines.Bound, size routines.Bound, sidebarWidth int, fg engine.RGB, bg engine.RGB) engine.Frame {
+	fullW := fullsize[0]
+	fullH := fullsize[1]
+	cells := make([]engine.Cell, fullW*fullH)
+	for i := range cells {
+		cells[i] = engine.Cell{Visible: false}
+	}
+
+	x := pos[0] + sidebarWidth
+	y0 := pos[1]
+	y1 := pos[1] + size[1]
+	if x < 0 || x >= fullW {
+		return engine.Frame{Size: fullsize, Cells: cells, Timeout: 0}
+	}
+	if y0 < 0 {
+		y0 = 0
+	}
+	if y1 > fullH {
+		y1 = fullH
+	}
+
+	for y := y0; y < y1; y++ {
+		cells[y*fullW+x] = engine.Cell{Char: '│', Fg: &fg, Bg: &bg, Visible: true}
+	}
+
+	return engine.Frame{Size: fullsize, Cells: cells, Timeout: 0}
 }
 
 func (e Editor) drawSidebarPanelOnly() *engine.Queue {

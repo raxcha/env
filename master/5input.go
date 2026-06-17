@@ -18,6 +18,10 @@ func (m *Master) updateInput(newinput *routines.Input) {
 		newinput.Key = "ctrl+enter"
 	}
 
+	if m.shouldIgnoreEmptyBackgroundInput(newinput) {
+		return
+	}
+
 	if newinput.Key == "ctrl+z" && m.Notifications.On {
 		m.Notifications.CancelLatest()
 
@@ -50,6 +54,19 @@ func (m *Master) updateInput(newinput *routines.Input) {
 	}
 
 	m.Draw()
+}
+
+func (m *Master) shouldIgnoreEmptyBackgroundInput(input *routines.Input) bool {
+	if len(m.Clients) != 0 || m.Menu.On {
+		return false
+	}
+	if input.Key == "ctrl+space" || input.Key == "ctrl+q" {
+		return false
+	}
+	if input.Key == "ctrl+z" && m.Notifications.On {
+		return false
+	}
+	return true
 }
 
 func (m *Master) openLauncher() {

@@ -1,0 +1,154 @@
+
+
+func (e *Editor) InputSelect(newinput *types.Input) {
+
+	switch newinput.Description {
+	case "up":
+		e.Focus--
+
+	case "down":
+		e.Focus++
+
+	case "left":
+		en := e.Entries[e.Focus]
+		en.Collapsed = true
+		if en.Page != nil {
+			e.Collapsing[en.Page.Path] = true
+		}
+
+	case "right":
+		en := e.Entries[e.Focus]
+		en.Collapsed = false
+		if en.Page != nil {
+			e.Collapsing[en.Page.Path] = false
+		}
+
+	case "enter":
+		switch e.Entries[e.Focus].Type {
+		case "page":
+			e.Parent.AddClients(e.Entries[e.Focus].Page.Path, "after", true)
+		case "loadmore":
+			mod := e.Entries[e.Focus].Module
+			e.Requests[mod].Latest += 1
+		}
+		e.MakeRequests()
+
+	case "ctrl+enter":
+		switch e.Entries[e.Focus].Type {
+		case "page":
+			e.Parent.AddClients(e.Entries[e.Focus].Page.Path, "after", false)
+		case "loadmore":
+			mod := e.Entries[e.Focus].Module
+			e.Requests[mod].Latest += 999
+		}
+		e.MakeRequests()
+
+	}
+
+	e.clampFocus()
+	e.setPreview()
+}
+
+
+
+func (e *Editor) Automate() {
+
+	if e.Page == nil {
+		return
+	}
+
+	if !utils.CompareContent(e.Page.Content, e.Content) {
+		e.Filesystem.EditPage(e.Page, e.Content)
+	}
+
+	if e.Specc == "a.log" {
+		e.Block()
+	}
+
+	req := filesystem.NewSyncRequest()
+	req.Api = false
+	req.Branch = e.Page
+	req.Filter = ""
+	req.Hard = false
+	e.sync(req)
+
+}
+
+func (e *Editor) sync(req *types.SyncRequest) {
+	reply := e.Filesystem.Sync(req)
+	go func() {
+		patch := <-reply
+		e.Parent.Dispatch(func() { e.Parent.SetPatch(patch) })
+	}()
+}
+
+func (e *Editor) Ensure() (bool, []string) {
+
+	ok, start, end := detectBlock(e.Content, e.Cursor[1])
+	if !ok { return false, []string{} }
+
+	if start+1 >= len(e.Content) || !utils.IsId(e.Content[start+1]) {
+		e.Content = utils.InsertLine(e.Content, start+1, "id: " + utils.GenerateId(12))
+		end++
+	}
+
+	top := start
+	if start == 0 || !utils.HasDateTime(e.Content[start-1]) {
+		e.Content = utils.InsertLine(e.Content, start, time.Now().Format("15:04"))
+		end++
+	} else {
+		top = start - 1
+	}
+
+	return true, e.Content[top : end+1]
+}
+
+func (e *Editor) Block() {
+
+	metadata := map[string]any{}
+	ok, block := e.Ensure()
+	if !ok { return } 
+
+	metadata["release-time"] = e.Page.Name + " " + block[0]
+	metadata["type"], metadata["title"] = utils.ParseBlockHeader(block[1])
+	_, metadata["id"] = utils.ParseBlockId(block[2])
+	metadata["content"] = block[3:]	
+	_, metadata["path"] = utils.GenBlockPath(metadata)
+
+	path, ok := metadata["path"].(string)
+	if ok {
+		p, patch := e.Filesystem.NewDraft(path, metadata)
+		if patch != nil {
+			e.Parent.SetPatch(patch)
+		}
+		e.Parent.AddClients(p.Path, "after", false)
+	}
+}
+
+func detectBlock(lines []string, index int) (bool, int, int) {
+
+	start := index
+	for start > 0 && !utils.SeparatorLine(lines[start-1]) {
+		start--
+	}
+
+	end := index
+	for end < len(lines)-1 && !utils.SeparatorLine(lines[end+1]) {
+		end++
+	}
+
+	if !isBlockHeader(lines[start]) && start < end && utils.HasDateTime(lines[start]) && isBlockHeader(lines[start+1]) {
+		start++
+	}
+
+	if !isBlockHeader(lines[start]) {
+		return false, start, end
+	}
+
+	return true, start, end
+}
+
+func isBlockHeader(line string) bool {
+	return strings.HasPrefix(line, ">") || strings.HasPrefix(line, "~") ||
+	strings.HasPrefix(line, "`") || strings.HasPrefix(line, "=") || strings.HasPrefix(line, "+")
+}

@@ -1,5 +1,8 @@
 # API local com Caddy
 
+Para rodar continuamente em um VPS Ubuntu 24.04 com HTTPS em `prsnlspc.xyz`,
+veja o [guia de instalação via git clone](../deploy/README.md).
+
 A API usa o pacote `env/filesystem` e os mesmos tipos JSON do cliente existente.
 Não há dependências Go novas. Por padrão, usa `~/prsnlspc`, o mesmo diretório do
 cliente local. O executável da interface continua funcionando como antes.

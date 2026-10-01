@@ -179,3 +179,99 @@ func TestSessionLimit(t *testing.T) {
 	handler = New(f, "user", "pass")
 	check(next, 401)
 }
+
+func TestShhh(t *testing.T) {
+	root := t.TempDir()
+	f, err := filesystem.Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "notes/deep"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	expected := map[string]string{"notes/deep/test": "olá\nworld", "notes/index": "folder content", ".hidden": "hidden content"}
+	for path, content := range expected {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, ".options"), []byte("password: secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(outside, []byte("external secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	handler := New(f, "user", "pass")
+	for _, tc := range []struct {
+		name, user, pass string
+		auth             bool
+		status           int
+	}{
+		{"missing", "", "", false, 401},
+		{"wrong password", "user", "bad", true, 401},
+		{"wrong user", "bad", "pass", true, 401},
+		{"valid", "user", "pass", true, 200},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest("GET", "/shhh", nil)
+			if tc.auth {
+				request.SetBasicAuth(tc.user, tc.pass)
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != tc.status {
+				t.Fatalf("status: %d", response.Code)
+			}
+			if response.Header().Get("Cache-Control") != "no-store" {
+				t.Fatal("export may be cached")
+			}
+			if tc.status == 401 {
+				if response.Header().Get("WWW-Authenticate") == "" {
+					t.Fatal("missing Basic challenge")
+				}
+				if bytes.Contains(response.Body.Bytes(), []byte("content")) {
+					t.Fatal("unauthorized data")
+				}
+				return
+			}
+			var result struct {
+				Files map[string]string `json:"files"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Files) != len(expected) {
+				t.Fatalf("unexpected files: %v", result.Files)
+			}
+			for path, want := range expected {
+				if result.Files[path] != want {
+					t.Errorf("%s: %q", path, result.Files[path])
+				}
+			}
+		})
+	}
+	for _, credentials := range [][2]string{{"", ""}, {"user", ""}, {"", "pass"}} {
+		request := httptest.NewRequest("GET", "/shhh", nil)
+		request.SetBasicAuth(credentials[0], credentials[1])
+		response := httptest.NewRecorder()
+		New(f, credentials[0], credentials[1]).ServeHTTP(response, request)
+		if response.Code != 401 {
+			t.Fatal("unconfigured credentials permit export")
+		}
+	}
+	empty, err := filesystem.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest("GET", "/shhh", nil)
+	request.SetBasicAuth("user", "pass")
+	response := httptest.NewRecorder()
+	New(empty, "user", "pass").ServeHTTP(response, request)
+	if response.Code != 200 || response.Body.String() != "{\"files\":{}}\n" {
+		t.Fatalf("empty export: %s", response.Body.String())
+	}
+}

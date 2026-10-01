@@ -19,10 +19,31 @@ trap 'rm -rf -- "$build_dir"' EXIT
 GOTOOLCHAIN=auto CGO_ENABLED=0 go build -trimpath -o "$build_dir/prsnlspc-api" ./cmd/api
 caddy validate --config "$PWD/deploy/Caddyfile" --adapter caddyfile
 
-if ! id prsnlspc >/dev/null 2>&1; then
-    useradd --system --user-group --home-dir /var/lib/prsnlspc --no-create-home \
-        --shell /usr/sbin/nologin prsnlspc
+if ! id nausea >/dev/null 2>&1; then
+    useradd --user-group --create-home --home-dir /home/nausea --shell /bin/bash nausea
 fi
+if [[ $(getent passwd nausea | cut -d: -f6) != /home/nausea ]]; then
+    echo 'O usuário nausea existente precisa ter home /home/nausea.' >&2
+    exit 1
+fi
+nausea_group=$(id -gn nausea)
+# Não mistura silenciosamente dois conjuntos de dados.
+if [[ -d /var/lib/prsnlspc ]] && [[ -n $(find /var/lib/prsnlspc -mindepth 1 -print -quit) ]]; then
+    if [[ -d /home/nausea/prsnlspc ]] && [[ -n $(find /home/nausea/prsnlspc -mindepth 1 -print -quit) ]]; then
+        if [[ ! -f /etc/prsnlspc/home-migration-complete ]]; then
+            echo 'Há dados no caminho antigo e no novo; faça a conciliação antes de instalar.' >&2
+            exit 1
+        fi
+    else
+        systemctl stop prsnlspc-api || true
+        install -d -o nausea -g "$nausea_group" -m 0700 /home/nausea/prsnlspc
+        cp -a /var/lib/prsnlspc/. /home/nausea/prsnlspc/
+        chown -R nausea:"$nausea_group" /home/nausea/prsnlspc
+        install -d -m 0700 /etc/prsnlspc
+        touch /etc/prsnlspc/home-migration-complete
+    fi
+fi
+install -d -o nausea -g "$nausea_group" -m 0700 /home/nausea/prsnlspc
 install -d -m 0700 /etc/prsnlspc
 if [[ ! -e /etc/prsnlspc/api.env ]]; then
     (umask 077; printf 'API_USERNAME=prsnlspc\nAPI_PASSWORD=%s\n' "$(openssl rand -hex 24)" > /etc/prsnlspc/api.env)
@@ -30,8 +51,10 @@ fi
 chmod 0600 /etc/prsnlspc/api.env
 
 # Binário inicial permite iniciar mesmo sem GitHub disponível.
-install -d -o prsnlspc -g prsnlspc -m 0700 /var/cache/prsnlspc
-install -o prsnlspc -g prsnlspc -m 0755 "$build_dir/prsnlspc-api" /var/cache/prsnlspc/prsnlspc-api.new
+systemctl stop prsnlspc-api || true
+install -d -o nausea -g "$nausea_group" -m 0700 /var/cache/prsnlspc
+chown -R nausea:"$nausea_group" /var/cache/prsnlspc
+install -o nausea -g "$nausea_group" -m 0755 "$build_dir/prsnlspc-api" /var/cache/prsnlspc/prsnlspc-api.new
 mv -f /var/cache/prsnlspc/prsnlspc-api.new /var/cache/prsnlspc/prsnlspc-api
 install -d -m 0755 /usr/local/libexec
 install -m 0755 deploy/update.sh /usr/local/libexec/prsnlspc-update
@@ -63,3 +86,4 @@ systemctl enable caddy
 systemctl reload-or-restart caddy
 echo 'API instalada. HTTPS depende do DNS e das portas 80/443 liberadas.'
 echo 'Veja as credenciais com: sudo cat /etc/prsnlspc/api.env'
+echo 'Escolha a senha do usuário Linux com: sudo passwd nausea'

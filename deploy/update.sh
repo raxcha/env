@@ -4,7 +4,6 @@ set -Eeuo pipefail
 # Diretório exclusivo do deploy; nunca é a pasta de dados da API.
 runtime_dir=${1:-/var/cache/prsnlspc}
 source_dir="$runtime_dir/source"
-export HOME="$runtime_dir"
 export GOCACHE="$runtime_dir/go-build"
 export GOPATH="$runtime_dir/go"
 export GOTOOLCHAIN=auto

@@ -83,3 +83,24 @@ caddy validate --config Caddyfile --adapter caddyfile
 ```
 
 Referência: [reverse_proxy do Caddy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy).
+
+## Exportar conteúdo no navegador
+
+`GET /shhh` retorna `{"files":{"pasta/nota":"conteúdo\n..."}}`, com todos
+os arquivos de texto do armazenamento, recursivamente, sem filtros de páginas.
+Inclui arquivos `index` e ocultos, exceto `.options` (configuração do cliente).
+Links simbólicos e arquivos especiais não são exportados. Pastas vazias não
+aparecem. Uma falha de leitura retorna 500, sem exportação parcial.
+
+Abra `https://prsnlspc.xyz/shhh`: o navegador solicita HTTP Basic com
+`API_USERNAME` e `API_PASSWORD`, as mesmas credenciais usadas em `/auth`.
+Não use a senha do usuário Linux `nausea`. A rota exige ambas as credenciais
+configuradas, inclusive em uso local, e envia `Cache-Control: no-store`.
+Também é possível usar (o curl solicita a senha):
+
+```sh
+curl --user prsnlspc https://prsnlspc.xyz/shhh
+```
+
+Após publicar o código no repositório usado pela VPS, execute nela
+`sudo systemctl restart prsnlspc-api` para atualizar e compilar a API.

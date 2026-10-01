@@ -48,16 +48,19 @@ sudo cat /etc/prsnlspc/api.env
 Os arquivos de deploy precisam estar publicados no repositório antes do clone.
 A atualização automática usa HTTPS sem interação. Se o repositório for privado,
 será necessário configurar acesso de leitura ao GitHub também para o usuário
-Linux `prsnlspc`; o login Git de root não é compartilhado com esse usuário.
+Linux `nausea`; o login Git de root não é compartilhado com esse usuário.
 Sem esse acesso, o serviço mantém o binário instalado e registra a falha nos logs.
 O projeto exige Go 1.26.0; o instalador usa `GOTOOLCHAIN=auto`, que
 [baixa a versão exigida pelo módulo](https://go.dev/doc/toolchain).
 A primeira compilação exige acesso à internet e pode demorar.
 
-O instalador gera usuário `prsnlspc` e senha aleatória para a API. As credenciais
+O instalador cria o usuário Linux `nausea` com home `/home/nausea` e gera
+credenciais separadas para a API (login `prsnlspc` e senha aleatória).
+Escolha a senha do usuário Linux no terminal do VPS: `sudo passwd nausea`.
+Essa senha não é solicitada no chat nem gravada no repositório. As credenciais
 ficam em `/etc/prsnlspc/api.env`, legível apenas por root, e são preservadas ao
-repetir a instalação. O processo roda como usuário Linux `prsnlspc`, sem
-privilégios administrativos. Os dados ficam em `/var/lib/prsnlspc`; faça backup
+repetir a instalação. O processo roda como usuário Linux `nausea`, sem
+privilégios administrativos. Os dados ficam em `/home/nausea/prsnlspc`; faça backup
 dessa pasta e do arquivo de credenciais. O VPS começa com uma pasta de dados nova;
 o clone não importa seus dados locais.
 
@@ -123,7 +126,7 @@ Uma compilação bem-sucedida não garante que a versão nova esteja livre de bu
 não há rollback automático de falhas em execução.
 
 O atualizador roda sem root, com o mesmo usuário da API. A pasta de dados
-`/var/lib/prsnlspc` e as credenciais em `/etc/prsnlspc/api.env` são preservadas.
+`/home/nausea/prsnlspc` e as credenciais em `/etc/prsnlspc/api.env` são preservadas.
 A atualização não migra nem apaga dados; mudanças futuras no comportamento do
 código Go continuam exigindo os cuidados normais com backup.
 Reiniciar a API invalida os tokens em memória;
@@ -132,3 +135,10 @@ reinicie o cliente para autenticar novamente. Para alterar a senha, edite
 `sudo systemctl restart prsnlspc-api` e atualize a senha no cliente.
 
 Referência: [ExecStartPre e reinícios no systemd](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html).
+
+Na primeira instalação sobre o layout antigo, o instalador para a API e copia
+os dados de `/var/lib/prsnlspc` para `/home/nausea/prsnlspc`, preservando a
+pasta antiga. Se ambos os diretórios já contiverem dados sem uma migração
+concluída, ele interrompe a instalação para evitar misturá-los.
+O clone e as compilações nunca apagam a pasta de dados. Reiniciar a VPS
+preserva os dados no disco; mantenha também um backup fora dela.

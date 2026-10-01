@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,4 +80,38 @@ func (f *Filesystem) SavePage(page *types.Page) error {
 		return err
 	}
 	return root.WriteFile(path, []byte(strings.Join(page.Content, "\n")), 0644)
+}
+
+// ExportContent reads stored content without following symlinks or exporting client credentials.
+func (f *Filesystem) ExportContent() (map[string]string, error) {
+	root, err := os.OpenRoot(f.whereIsRoot())
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	files := make(map[string]string)
+	err = fs.WalkDir(root.FS(), ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Name() == ".options" {
+			if entry.IsDir() {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		data, err := root.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		files[path] = string(data)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
 }

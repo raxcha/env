@@ -88,6 +88,24 @@ func New(f *filesystem.Filesystem, username, password string) http.Handler {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+	mux.HandleFunc("GET /shhh", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		user, pass, ok := r.BasicAuth()
+		// Unlike local token authentication, exports require configured credentials.
+		if username == "" || password == "" || !ok || !equal(user, username) || !equal(pass, password) {
+			w.Header().Set("WWW-Authenticate", `Basic realm="prsnlspc", charset="UTF-8"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		files, err := f.ExportContent()
+		if err != nil {
+			http.Error(w, "export failed", http.StatusInternalServerError)
+			return
+		}
+		respond(w, map[string]any{"files": files})
+	})
 	return mux
 }
 

@@ -6,9 +6,9 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
-for command in go caddy openssl curl; do
+for command in go git timeout caddy openssl curl; do
     command -v "$command" >/dev/null || {
-        echo 'Instale: sudo apt install -y golang-go caddy openssl curl' >&2
+        echo 'Instale: sudo apt install -y git golang-go caddy openssl curl' >&2
         exit 1
     }
 done
@@ -29,9 +29,12 @@ if [[ ! -e /etc/prsnlspc/api.env ]]; then
 fi
 chmod 0600 /etc/prsnlspc/api.env
 
-# Rename permite atualizar mesmo com o binário em execução.
-install -m 0755 "$build_dir/prsnlspc-api" /usr/local/bin/prsnlspc-api.new
-mv -f /usr/local/bin/prsnlspc-api.new /usr/local/bin/prsnlspc-api
+# Binário inicial permite iniciar mesmo sem GitHub disponível.
+install -d -o prsnlspc -g prsnlspc -m 0700 /var/cache/prsnlspc
+install -o prsnlspc -g prsnlspc -m 0755 "$build_dir/prsnlspc-api" /var/cache/prsnlspc/prsnlspc-api.new
+mv -f /var/cache/prsnlspc/prsnlspc-api.new /var/cache/prsnlspc/prsnlspc-api
+install -d -m 0755 /usr/local/libexec
+install -m 0755 deploy/update.sh /usr/local/libexec/prsnlspc-update
 install -m 0644 deploy/prsnlspc-api.service /etc/systemd/system/prsnlspc-api.service
 systemctl daemon-reload
 systemctl enable prsnlspc-api

@@ -1,6 +1,7 @@
 [Unit]
 Description=prsnlspc API
-After=network.target
+Wants=network-online.target
+After=network-online.target
 StartLimitIntervalSec=0
 
 [Service]
@@ -8,9 +9,14 @@ User=prsnlspc
 Group=prsnlspc
 StateDirectory=prsnlspc
 StateDirectoryMode=0700
+CacheDirectory=prsnlspc
+CacheDirectoryMode=0700
 WorkingDirectory=/var/lib/prsnlspc
 EnvironmentFile=/etc/prsnlspc/api.env
-ExecStart=/usr/local/bin/prsnlspc-api -addr 127.0.0.1:8081 -root /var/lib/prsnlspc
+# Falha na atualização mantém o binário anterior disponível.
+ExecStartPre=-/usr/bin/timeout --kill-after=10s 300s /usr/local/libexec/prsnlspc-update
+TimeoutStartSec=330
+ExecStart=/var/cache/prsnlspc/prsnlspc-api -addr 127.0.0.1:8081 -root /var/lib/prsnlspc
 Restart=always
 RestartSec=5
 UMask=0077

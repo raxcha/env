@@ -8,6 +8,7 @@ import (
 	"env/utils"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,63 +17,60 @@ import (
 	"unicode/utf8"
 )
 
-
 type Editor struct {
-
-	Parent cli.Parent
-	Settings *settings.Settings
+	Parent     cli.Parent
+	Settings   *settings.Settings
 	Filesystem *filesystem.Filesystem
 
-	Mode string
-	Layout string
+	Mode        string
+	Layout      string
 	Orientation string
 
-	Sizes *types.Dimensions
+	Sizes       *types.Dimensions
 	SelectSizes *types.Dimensions
 	VisualSizes *types.Dimensions
 
-	Numbers bool
-	Wrap bool
-	Zen bool
+	SharedSidebar bool
+	Numbers       bool
+	Wrap          bool
+	Zen           bool
 
-	Undo []state
-	Redo []state
-	Collapsing map[string]bool
+	Undo         []state
+	Redo         []state
+	Collapsing   map[string]bool
+	FoldedBlocks map[int]int
 
-	Spec string
+	Spec    string
 	Request *types.Loading
-	Page *types.Page
+	Page    *types.Page
 
-	Content []string
-	Cursor [3]int
-	Preview []string
-	PathEditor *Editor
+	Content     []string
+	Cursor      [3]int
+	Preview     []string
+	PathEditor  *Editor
 	EditingPath bool
-	PathError string
+	PathError   string
 
-	Specc string
-	Requests []*types.Loading
-	Modules []*entry
+	Specc      string
+	Requests   []*types.Loading
+	Modules    []*entry
 	AllEntries []*entry
-	Entries []*entry
+	Entries    []*entry
 
 	Prompt string
-	Focus int
-
+	Focus  int
 }
 
 type state struct {
-
 	Content []string
-	Cursor [3]int
+	Cursor  [3]int
 }
 
 type entry struct {
-
-	Type string
+	Type   string
 	Module int
 
-	Page *types.Page
+	Page     *types.Page
 	Children []*entry
 
 	Depth int
@@ -81,49 +79,70 @@ type entry struct {
 	Collapsed bool
 }
 
-func CreateEditor (parent cli.Parent, spec string) *Editor {
+func CreateEditor(parent cli.Parent, spec string) *Editor {
+	return createEditor(parent, spec, nil)
+}
 
-	e := Editor {
+// CreateEditorFromPage opens an already loaded page without reloading its content.
+func CreateEditorFromPage(parent cli.Parent, page *types.Page) *Editor {
+	return createEditor(parent, page.Path, page)
+}
 
-		Parent: parent,
-		Settings: parent.GetSettings(),
+func createEditor(parent cli.Parent, spec string, page *types.Page) *Editor {
+
+	e := Editor{
+
+		Parent:     parent,
+		Settings:   parent.GetSettings(),
 		Filesystem: parent.GetFilesystem(),
 
-		Mode: parent.GetMode(),
-		Layout: parent.GetLayout(),
+		Mode:        parent.GetMode(),
+		Layout:      parent.GetLayout(),
 		Orientation: "horizontal",
 
-		Sizes: &types.Dimensions{},
+		Sizes:       &types.Dimensions{},
 		SelectSizes: &types.Dimensions{},
 		VisualSizes: &types.Dimensions{},
 
 		Numbers: true,
-		Wrap: true,
-		Zen: false,
+		Wrap:    true,
+		Zen:     false,
 
-		Undo: []state{},
-		Redo: []state{},
+		Undo:       []state{},
+		Redo:       []state{},
 		Collapsing: map[string]bool{},
 
-		Spec: spec,
+		Spec:    spec,
 		Request: &types.Loading{},
-		Page: nil,
+		Page:    nil,
 
 		Content: []string{""},
-		Cursor: [3]int{0, 0, 0},
+		Cursor:  [3]int{0, 0, 0},
 		Preview: nil,
 
-		Specc: strings.Split(spec, "/")[0],
-		Requests: []*types.Loading{},
-		Modules: make([]*entry, 12),
+		Specc:      strings.Split(spec, "/")[0],
+		Requests:   []*types.Loading{},
+		Modules:    make([]*entry, 12),
 		AllEntries: []*entry{},
-		Entries: []*entry{},
+		Entries:    []*entry{},
 
 		Prompt: "",
-		Focus: 0,
+		Focus:  0,
 	}
 
-	e.restartRequests()
+	if page != nil {
+		e.Page = page
+		e.Content = append([]string{}, page.Content...)
+	}
+	e.configureRequests()
+	if page == nil {
+		e.makeRequests()
+	} else {
+		e.newPageEntry(page, 0)
+		for _, req := range e.Requests {
+			e.loadOnce(req)
+		}
+	}
 
 	return &e
 }
@@ -145,7 +164,12 @@ func (e *Editor) newLoading(path string, api bool, mode string, sort string, fil
 }
 
 func (e *Editor) restartRequests() {
-	
+	e.configureRequests()
+	e.makeRequests()
+}
+
+func (e *Editor) configureRequests() {
+
 	e.Request = e.newLoading(e.Spec, false, "fresh", "", "", 0, -1)
 	e.Request.CreateDraft = true
 
@@ -168,7 +192,6 @@ func (e *Editor) restartRequests() {
 		e.Requests = append(e.Requests, e.newLoading(root, false, "fresh", sorting, "", -1, 5))
 	}
 
-	e.makeRequests()
 }
 
 func (e *Editor) makeRequests() {
@@ -181,7 +204,7 @@ func (e *Editor) makeRequests() {
 }
 
 func (e *Editor) loadOnce(req *types.Loading) {
-	
+
 	reply := e.Filesystem.Load(req)
 
 	go func() {
@@ -200,14 +223,17 @@ func (e *Editor) loadOnce(req *types.Loading) {
 				if i == 0 {
 					if e.Page == nil {
 						e.Content = append([]string{}, page.Content...)
+						e.FoldedBlocks = nil
 					}
 					e.Page = page
 				}
 
-				if len(e.Content) == 0 { e.Content = []string{""} }
+				if len(e.Content) == 0 {
+					e.Content = []string{""}
+				}
 			}
 		}
-		
+
 	}()
 }
 
@@ -215,10 +241,10 @@ func (e *Editor) newPageEntry(page *types.Page, module int) *entry {
 
 	en := &entry{
 
-		Type: "page",
+		Type:   "page",
 		Module: module,
 
-		Page: page,
+		Page:     page,
 		Children: []*entry{},
 
 		Depth: utils.PathDepth(page.Path),
@@ -247,7 +273,7 @@ func (e *Editor) flattenPageEntry(en *entry) []*entry {
 	flat := []*entry{en}
 
 	for _, child := range en.Children {
-		flat = append(flat, e.flattenPageEntry(child)...)	
+		flat = append(flat, e.flattenPageEntry(child)...)
 	}
 
 	return flat
@@ -316,7 +342,11 @@ func (e *Editor) generateEntries() {
 		}
 	}
 
-	for _, en := range e.AllEntries {
+	for i, en := range e.AllEntries {
+		// The tree root is already identified by the select's context.
+		if i == 0 && en.Type == "page" && en.Page != nil && en.Page.Type == "deep" {
+			continue
+		}
 
 		if en.Type == "page" && len(en.Children) > 0 && en.Collapsed {
 			blacklistChildren(en.Children)
@@ -328,7 +358,9 @@ func (e *Editor) generateEntries() {
 	}
 
 	depth := 0
-	if len(entries) > 0 { depth = entries[0].Depth + 1 }
+	if len(entries) > 0 {
+		depth = entries[0].Depth
+	}
 	entries = append(entries, &entry{Type: "load-more", Label: "load more!", Depth: depth})
 	e.Entries = entries
 	e.Focus = max(0, min(e.Focus, len(entries)-1))
@@ -342,7 +374,7 @@ func (e *Editor) Refresh(hard bool) {
 	if hard {
 		e.restartRequests()
 	}
-} 
+}
 
 func (e *Editor) Resize(newsizes types.Dimensions) {
 
@@ -351,54 +383,31 @@ func (e *Editor) Resize(newsizes types.Dimensions) {
 
 	e.Sizes = &newsizes
 
-	switch 2*newsizes.Size[1] > newsizes.Size[0] {
-
-	case false:
-
-		selectt := newsizes
-		selectt.Pos[0] = selectt.Pos[0]
-		selectt.Pos[1] = selectt.Pos[1]
-		selectt.Size[0] = e.getSelectWidth()
-		selectt.Size[1] = selectt.Size[1]
-		e.SelectSizes = &selectt
-
-		visuall := newsizes
-		visuall.Pos[0] += e.getSelectWidth()
-		visuall.Pos[1] = visuall.Pos[1]
-		visuall.Size[0] -= e.getSelectWidth()
-		visuall.Size[1] = visuall.Size[1]
-		e.VisualSizes = &visuall
-
-	case true:
-
-		visuall := newsizes
-		visuall.Pos[0] = visuall.Pos[0]
-		visuall.Pos[1] = visuall.Pos[1]
-		visuall.Size[1] -= e.getSelectHeight()
-		e.VisualSizes = &visuall
-
-		selectt := newsizes
-		selectt.Pos[0] = selectt.Pos[0]
-		selectt.Pos[1] += visuall.Size[1]
-		selectt.Size[0] = selectt.Size[0]
-		selectt.Size[1] = e.getSelectHeight()
-		e.SelectSizes = &selectt
-
+	if e.SharedSidebar {
+		e.VisualSizes = &newsizes
+		return
 	}
 
-	if e.Layout != "split" {
-		e.SelectSizes = e.Sizes
+	// Keep the select geometry identical when the preview is toggled.
+	selectSizes, visualSizes := newsizes, newsizes
+	if 2*newsizes.Size[1] > newsizes.Size[0] {
+		selectSizes.Size[1] = e.getSelectHeight()
+		visualSizes.Size[1] -= selectSizes.Size[1]
+		selectSizes.Pos[1] += visualSizes.Size[1]
+	} else {
+		selectSizes.Size[0] = e.getSelectWidth()
+		visualSizes.Pos[0] += selectSizes.Size[0]
+		visualSizes.Size[0] -= selectSizes.Size[0]
+	}
+	e.SelectSizes = &selectSizes
+	e.VisualSizes = &visualSizes
+	if e.Layout == "visual" {
 		e.VisualSizes = e.Sizes
 	}
-
 }
 
 func (e *Editor) getSelectHeight() int {
-
-	if len(e.AllEntries) > e.Sizes.Size[1]/2 {
-		return e.Sizes.Size[1] / 2
-	}
-	return len(e.AllEntries)
+	return min(len(e.Entries)+1, max(0, e.Sizes.Size[1]/2))
 }
 
 func (e *Editor) getSelectWidth() int {
@@ -415,6 +424,12 @@ func (e *Editor) Draw() *types.Queue {
 	e.Resize(*e.Sizes)
 
 	queues := []*types.Queue{}
+	if e.SharedSidebar {
+		if e.Layout != "select" {
+			return e.drawVisual()
+		}
+		return e.Settings.MergeQueues()
+	}
 
 	switch e.Layout {
 	case "select":
@@ -448,7 +463,20 @@ func (e *Editor) selectLabel(en *entry) string {
 	if len(e.Entries) > 0 {
 		baseDepth = e.Entries[0].Depth
 	}
-	label := " " + strings.Repeat("  ", max(0, en.Depth-baseDepth)) + en.Label
+	icon := ""
+	if en.Type == "load-more" {
+		icon = "󰓦 "
+	}
+	if en.Type == "page" && en.Page != nil {
+		stage := en.Page.Stage
+		if en.Page == e.Page {
+			stage = e.GetStage()
+		}
+		if stageIcon := utils.StageIcons[stage]; stageIcon != "" {
+			icon = stageIcon + " "
+		}
+	}
+	label := "  " + strings.Repeat("  ", max(0, en.Depth-baseDepth)) + icon + en.Label
 	if en.Type == "page" && en.Page != nil && en.Page.Type == "deep" {
 		label += utils.SuperscriptString(strconv.Itoa(en.descendantPages()))
 	}
@@ -467,7 +495,7 @@ func (e *Editor) drawSelect() *types.Queue {
 		}
 
 		if i == e.Focus {
-			label = "§yx0 " + label
+			label = "§YX0 " + label
 		} else {
 			label = "§xy0 " + label
 		}
@@ -478,14 +506,10 @@ func (e *Editor) drawSelect() *types.Queue {
 	lines = lines[e.selectViewport():]
 
 	sizes := *e.SelectSizes
-	if e.Layout != "split" {
-		sizes.Pos[1]++
-		sizes.Size[1] = max(0, sizes.Size[1]-1)
-	}
+	sizes.Pos[1]++
+	sizes.Size[1] = max(0, sizes.Size[1]-1)
 	frame := e.Settings.GenerateFrame(sizes, lines, 0, []int{0, 0, 0, 0})
-	if e.Layout != "split" {
-		frame = e.Settings.MergeFrames(frame, e.drawPath(*e.SelectSizes))
-	}
+	frame = e.Settings.MergeFrames(frame, e.drawPath(*e.SelectSizes))
 	return e.Settings.GenerateQueue(e.SelectSizes.Full, []*types.Frame{frame}, false)
 }
 
@@ -496,8 +520,7 @@ func (e *Editor) selectViewport() int {
 		return 0
 	}
 
-	height := e.SelectSizes.Size[1]
-	if e.Layout != "split" { height = max(0, height-1) }
+	height := max(0, e.SelectSizes.Size[1]-1)
 	if height <= 0 || total <= height {
 		return 0
 	}
@@ -534,7 +557,8 @@ func (e *Editor) drawVisual() *types.Queue {
 		wrapText = "999"
 	}
 
-	gutterWidth := len(strconv.Itoa(len(content))) + 2
+	numberWidth := len(strconv.Itoa(len(content)))
+	gutterWidth := numberWidth + 3
 	if e.Zen || !e.Numbers {
 		gutterWidth = 0
 	}
@@ -550,7 +574,7 @@ func (e *Editor) drawVisual() *types.Queue {
 	contentSizes.Pos[1]++
 	contentSizes.Size[1] = max(0, contentSizes.Size[1]-1)
 	if e.Zen {
-		contentSizes.Pos[0] = int(float64(contentSizes.Size[0]) * 0.16)
+		contentSizes.Pos[0] += int(float64(contentSizes.Size[0]) * 0.16)
 		contentSizes.Size[0] = int(float64(contentSizes.Size[0]) * 0.68)
 	} else {
 		contentSizes.Pos[0] += gutterWidth
@@ -561,8 +585,24 @@ func (e *Editor) drawVisual() *types.Queue {
 	contentWidth := max(0, contentSizes.Size[0]-contentMargin[1]-contentMargin[3])
 
 	lines := []string{}
+	lineNumbers := []int{}
+	visibleCursor := 0
+	hiddenUntil := -1
 
 	for i, line := range content {
+		if !preview && i <= hiddenUntil {
+			continue
+		}
+		foldEnd, folded := e.FoldedBlocks[i]
+		if !preview && folded {
+			hiddenUntil = foldEnd
+		}
+		if i == e.Cursor[1] {
+			visibleCursor = len(lines)
+		}
+		lineNumbers = append(lineNumbers, i)
+
+		line = highlightDollars(line, !preview && !e.EditingPath && i == e.Cursor[1])
 
 		if !preview && !e.EditingPath && i == e.Cursor[1] {
 
@@ -570,7 +610,6 @@ func (e *Editor) drawVisual() *types.Queue {
 			line = utils.ReplacePaired(line, "%", "%‹i ", "›i %")
 			line = utils.ReplacePaired(line, "_", "_‹u ", "›u _")
 			line = utils.ReplacePaired(line, "^", "^‹U ", "›U ^")
-			line = utils.ReplacePaired(line, "$", "$‹a ", "›a $")
 			line = utils.ReplacePaired(line, "&", "&‹A ", "›A &")
 
 		} else {
@@ -579,7 +618,6 @@ func (e *Editor) drawVisual() *types.Queue {
 			line = utils.ReplacePaired(line, "%", "‹i ", "›i ")
 			line = utils.ReplacePaired(line, "_", "‹u ", "›u ")
 			line = utils.ReplacePaired(line, "^", "‹U ", "›U ")
-			line = utils.ReplacePaired(line, "$", "‹a ", "›a ")
 			line = utils.ReplacePaired(line, "&", "‹A ", "›A ")
 
 		}
@@ -596,33 +634,39 @@ func (e *Editor) drawVisual() *types.Queue {
 			idx := utils.RealIndex(line, e.Cursor[0])
 
 			if idx < len(runes) {
-				line = string(runes[:idx]) + "¤bx " + string(runes[idx]) + "¤ " + string(runes[idx+1:])
+				line = string(runes[:idx]) + "¤BX " + string(runes[idx]) + "¤ " + string(runes[idx+1:])
 			} else {
-				line += "¤bx  ¤ "
+				line += "¤BX  ¤ "
 			}
 
-			line = "§yx" + wrapText + " " + line + "¤yx "
+			line = "§YX" + wrapText + " " + line + "¤YX "
 
 		} else {
 
 			line = "§xy" + wrapText + " " + line
 		}
 
+		if !preview && folded {
+			line += " ‹b …›b "
+		}
 		lines = append(lines, line)
 
 	}
 
 	first := 0
 	if !preview {
-		first = e.visualViewport(lines, contentWidth)
+		first = e.visualViewportAt(lines, contentWidth, visibleCursor)
 	}
 	lines = lines[first:]
+	lineNumbers = lineNumbers[first:]
 
 	numbers := []string{}
-	
+
 	for i := range len(lines) {
-		
-		if e.Zen || !e.Numbers { break }
+
+		if e.Zen || !e.Numbers {
+			break
+		}
 
 		parts := 1
 		if e.Wrap && contentWidth > 0 {
@@ -631,14 +675,18 @@ func (e *Editor) drawVisual() *types.Queue {
 
 		for j := range parts {
 
-			num := fmt.Sprintf("%"+strconv.Itoa(max(1, gutterWidth-1))+"d", first+i+1)
+			label := strconv.Itoa(lineNumbers[i] + 1)
+			if _, folded := e.FoldedBlocks[lineNumbers[i]]; !preview && folded {
+				label = "…" + label
+			}
+			num := fmt.Sprintf(" %*s ", numberWidth+1, label)
 
 			if j != 0 {
 				num = strings.Repeat(" ", gutterWidth)
 			}
 
-			if !preview && !e.EditingPath && first+i == e.Cursor[1] {
-				num = "§yx0 " + num
+			if !preview && !e.EditingPath && lineNumbers[i] == e.Cursor[1] {
+				num = "§YX0 " + num
 			} else {
 				num = "§xy0 " + num
 			}
@@ -650,22 +698,33 @@ func (e *Editor) drawVisual() *types.Queue {
 	numbersFrame := e.Settings.GenerateFrame(gutterSizes, numbers, 0, []int{0, 0, 0, 0})
 	contentFrame := e.Settings.GenerateFrame(contentSizes, lines, 0, contentMargin)
 
-	finalFrame := e.Settings.MergeFrames(numbersFrame, contentFrame, e.drawPath(*e.VisualSizes))
+	pathSizes := contentSizes
+	pathSizes.Pos[1] = e.VisualSizes.Pos[1]
+	pathSizes.Size[1] = min(1, e.VisualSizes.Size[1])
+	finalFrame := e.Settings.MergeFrames(numbersFrame, contentFrame, e.drawAlignedPath(pathSizes, e.VisualSizes.Pos[0]))
 	return e.Settings.GenerateQueue(e.VisualSizes.Full, []*types.Frame{finalFrame}, false)
 }
 
 var dateRegex = `\b\d{4}\.\d{2}\.\d{2}\b`
 var timeRegex = `\b(?:[01]\d|2[0-3]):[0-5]\d\b`
-var tagRegex = `#[A-Za-z0-9_]+(?:\s|$)`
-var projectRegex = `@[A-Za-z0-9_]+(?:\s|$)`
+var tagRegex = `#[A-Za-z0-9_-]+(?:\s|$)`
+var projectRegex = `@[A-Za-z0-9_-]+(?:\s|$)`
 var metadataRegex = `^([^:]+):`
 
 func (e *Editor) visualViewport(lines []string, width int) int {
+	return e.visualViewportAt(lines, width, e.Cursor[1])
+}
 
-	if len(lines) <= 1 || e.VisualSizes == nil { return 0 }
+func (e *Editor) visualViewportAt(lines []string, width, cursorLine int) int {
+
+	if len(lines) <= 1 || e.VisualSizes == nil {
+		return 0
+	}
 
 	height := max(0, e.VisualSizes.Size[1]-1)
-	if height <= 0 { return 0 }
+	if height <= 0 {
+		return 0
+	}
 
 	rows := make([]int, len(lines))
 	total := 0
@@ -678,16 +737,18 @@ func (e *Editor) visualViewport(lines []string, width int) int {
 		total += rows[i]
 	}
 
-	if total <= height { return 0 }
+	if total <= height {
+		return 0
+	}
 
-	cursor := max(0, min(e.Cursor[1], len(lines)-1))
+	cursor := max(0, min(cursorLine, len(lines)-1))
 	position := 0
 	for i := 0; i < cursor; i++ {
 		position += rows[i]
 	}
 
-	target := position * (total - height) / max(1, total - rows[cursor])
-	target = max(target, position + min(rows[cursor], height) - height)
+	target := position * (total - height) / max(1, total-rows[cursor])
+	target = max(target, position+min(rows[cursor], height)-height)
 
 	first := 0
 	offset := 0
@@ -709,23 +770,37 @@ func (e *Editor) Input(newinput types.Input) {
 	}
 }
 
-
 func (e *Editor) InputVisual(newinput *types.Input) {
-	if e.inputPath(newinput) { return }
+	if e.inputPath(newinput) {
+		return
+	}
+	if (newinput.Description == "enter" || newinput.Description == "ctrl+enter") && e.openProjectAtCursor(newinput.Description == "enter") {
+		return
+	}
 
-
-	if len(e.Content) == 0 { e.Content = []string{""} }
-	if len(e.Undo) == 0 { e.savestate() }
+	if len(e.Content) == 0 {
+		e.Content = []string{""}
+	}
+	if len(e.Undo) == 0 {
+		e.savestate()
+	}
 
 	before := state{Content: slices.Clone(e.Content), Cursor: e.Cursor}
+	defer func() {
+		if !slices.Equal(before.Content, e.Content) {
+			e.FoldedBlocks = nil
+		}
+	}()
 
 	switch newinput.Description {
 	case "up":
-		e.movey(-1)
+		e.moveVisibleLine(-1)
 	case "down":
-		e.movey(1)
+		e.moveVisibleLine(1)
 	case "left":
-		e.movex(-1)
+		if e.Cursor[0] != 0 || !e.toggleBlockFold() {
+			e.movex(-1)
+		}
 	case "right":
 		e.movex(1)
 	case "char", "number":
@@ -787,6 +862,22 @@ func (e *Editor) InputVisual(newinput *types.Input) {
 	}
 }
 
+func (e *Editor) openProjectAtCursor(follow bool) bool {
+	if e.Parent == nil || e.Cursor[1] < 0 || e.Cursor[1] >= len(e.Content) {
+		return false
+	}
+	line := e.Content[e.Cursor[1]]
+	for _, match := range regexp.MustCompile(projectRegex).FindAllStringIndex(line, -1) {
+		project := strings.TrimSpace(line[match[0]:match[1]])
+		start := utf8.RuneCountInString(line[:match[0]])
+		if e.Cursor[0] >= start && e.Cursor[0] < start+utf8.RuneCountInString(project) {
+			e.Parent.AddClients("editor:proj/"+project, "after", follow)
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Editor) savePage() {
 	if e.Page == nil || e.Filesystem == nil {
 		return
@@ -797,6 +888,19 @@ func (e *Editor) savePage() {
 		return
 	}
 	if e.PathEditor != nil {
+		if strings.TrimSpace(e.PathEditor.Content[0]) == "" {
+			e.Filesystem.DoomPage(e.Page)
+			e.PathError = ""
+			if e.Parent != nil {
+				for i, client := range e.Parent.GetClients() {
+					if client == e {
+						e.Parent.CloseClient(i)
+						break
+					}
+				}
+			}
+			return
+		}
 		if err := e.Filesystem.RepathPage(e.Page, e.PathEditor.Content[0]); err != nil {
 			e.PathError = err.Error()
 			return
@@ -805,7 +909,9 @@ func (e *Editor) savePage() {
 		e.PathEditor.Content[0] = e.Page.Path
 		e.Spec = e.Page.Path
 		e.Specc = strings.Split(e.Spec, "/")[0]
-		if e.Request != nil { e.Request.Path = e.Page.Path }
+		if e.Request != nil {
+			e.Request.Path = e.Page.Path
+		}
 		for _, en := range e.AllEntries {
 			if en.Page != nil {
 				en.Label = en.Page.Name
@@ -813,7 +919,10 @@ func (e *Editor) savePage() {
 			}
 		}
 	}
-	if !e.EditingPath { e.ensureLogEvent() }
+	if !e.EditingPath {
+		e.ensureLogEvent()
+		e.syncEventBlocks()
+	}
 	e.Filesystem.EditPage(e.Page, e.Content)
 	e.Filesystem.Sync(&types.Syncing{Branch: e.Page, Hard: false})
 }
@@ -848,14 +957,10 @@ func (e *Editor) ensureLogEvent() {
 	}) {
 		return
 	}
-	root := "rec"
-	if e.Content[y][0] == '`' {
-		root = "rand"
-	}
-	title := strings.Join(strings.FieldsFunc(strings.ToLower(e.Content[y][1:]), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	}), "-")
-	page := e.Filesystem.CacheEventDraft(root, id, title)
+	marker := e.Content[y][:1]
+	root, _, _ := eventTemplate(marker)
+	page := e.Filesystem.CacheEventDraft(root, marker, id, eventTitle(e.Content[y]))
+	e.syncEventBlock(page, y)
 	if e.Parent != nil {
 		e.Parent.AddClients("editor:"+page.Path, "after", false)
 	}
@@ -863,14 +968,18 @@ func (e *Editor) ensureLogEvent() {
 
 func (e *Editor) copyline() {
 
-	if len(e.Content) == 0 || e.Parent == nil { return }
+	if len(e.Content) == 0 || e.Parent == nil {
+		return
+	}
 
 	e.Parent.SetClipboard(e.Content[e.Cursor[1]] + "\n")
 }
 
 func (e *Editor) duplicateline() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.Content = slices.Insert(e.Content, e.Cursor[1]+1, e.Content[e.Cursor[1]])
 	e.movey(1)
@@ -879,21 +988,29 @@ func (e *Editor) duplicateline() {
 
 func (e *Editor) cutline() {
 
-	if len(e.Content) == 0 || e.Parent == nil { return }
+	if len(e.Content) == 0 || e.Parent == nil {
+		return
+	}
 
 	e.copyline()
 	e.Content = slices.Delete(e.Content, e.Cursor[1], e.Cursor[1]+1)
-	if len(e.Content) == 0 { e.Content = []string{""} }
+	if len(e.Content) == 0 {
+		e.Content = []string{""}
+	}
 	e.Cursor[1] = min(e.Cursor[1], len(e.Content)-1)
 	e.clampcursor()
 }
 
 func (e *Editor) pasteline() {
 
-	if len(e.Content) == 0 || e.Parent == nil { return }
+	if len(e.Content) == 0 || e.Parent == nil {
+		return
+	}
 
 	str := e.Parent.GetClipboard()
-	if str == "" { return }
+	if str == "" {
+		return
+	}
 
 	lines := strings.Split(strings.TrimSuffix(str, "\n"), "\n")
 	e.Content = slices.Insert(e.Content, e.Cursor[1]+1, lines...)
@@ -913,12 +1030,16 @@ func (e *Editor) savestate() {
 
 func (e *Editor) undo() {
 
-	if len(e.Undo) == 0 { return }
+	if len(e.Undo) == 0 {
+		return
+	}
 
 	last := e.Undo[len(e.Undo)-1]
 
 	if slices.Equal(last.Content, e.Content) {
-		if len(e.Undo) == 1 { return }
+		if len(e.Undo) == 1 {
+			return
+		}
 		e.Undo = e.Undo[:len(e.Undo)-1]
 		last = e.Undo[len(e.Undo)-1]
 	}
@@ -930,7 +1051,9 @@ func (e *Editor) undo() {
 
 func (e *Editor) redo() {
 
-	if len(e.Redo) == 0 { return }
+	if len(e.Redo) == 0 {
+		return
+	}
 
 	last := e.Redo[len(e.Redo)-1]
 	e.Redo = e.Redo[:len(e.Redo)-1]
@@ -941,7 +1064,9 @@ func (e *Editor) redo() {
 
 func (e *Editor) ctrlenter() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.Content = slices.Insert(e.Content, e.Cursor[1]+1, "")
 	e.movey(1)
@@ -950,7 +1075,9 @@ func (e *Editor) ctrlenter() {
 
 func (e *Editor) enter() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.clampcursor()
 
@@ -963,7 +1090,9 @@ func (e *Editor) enter() {
 
 func (e *Editor) ctrldelete() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.clampcursor()
 
@@ -979,7 +1108,9 @@ func (e *Editor) ctrldelete() {
 
 func (e *Editor) delete() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.clampcursor()
 
@@ -995,7 +1126,9 @@ func (e *Editor) delete() {
 
 func (e *Editor) ctrlbackspace() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.clampcursor()
 
@@ -1011,7 +1144,9 @@ func (e *Editor) ctrlbackspace() {
 
 func (e *Editor) backspace() {
 
-	if len(e.Content) == 0 { return }
+	if len(e.Content) == 0 {
+		return
+	}
 
 	e.clampcursor()
 
@@ -1101,7 +1236,9 @@ func (e *Editor) InputSelect(newinput *types.Input) {
 		en := e.Entries[e.Focus]
 		if en != nil && en.Type == "load-more" {
 			amount := 1
-			if newinput.Description == "ctrl+enter" { amount = 4 }
+			if newinput.Description == "ctrl+enter" {
+				amount = 4
+			}
 			e.loadMore(amount)
 			return
 		}
@@ -1122,21 +1259,27 @@ func (e *Editor) loadMore(amount int) {
 		req = e.Requests[0]
 		module = 1
 	}
-	if req == nil || e.Filesystem == nil { return }
+	if req == nil || e.Filesystem == nil {
+		return
+	}
 	req.Latest = max(0, req.Latest) + amount
 	// Refresh only the select tree; preserve the editor's content and cursor.
 	page, ok := <-e.Filesystem.Load(req)
-	if !ok || page == nil || page.Type == "error" { return }
+	if !ok || page == nil || page.Type == "error" {
+		return
+	}
 	collapsed := map[string]bool{}
 	for _, en := range e.AllEntries {
-		if en.Page != nil { collapsed[en.Page.Path] = en.Collapsed }
+		if en.Page != nil {
+			collapsed[en.Page.Path] = en.Collapsed
+		}
 	}
 	root := e.newPageEntry(page, module)
 	for _, en := range e.flattenPageEntry(root) {
 		en.Collapsed = collapsed[en.Page.Path]
 	}
 	e.generateAllEntries()
-	e.Focus = len(e.Entries)-1
+	e.Focus = len(e.Entries) - 1
 }
 
 func (e *Editor) collapse(b bool) {

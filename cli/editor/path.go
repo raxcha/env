@@ -50,33 +50,60 @@ func (e *Editor) inputPath(input *types.Input) bool {
 }
 
 func (e *Editor) drawPath(sizes types.Dimensions) *types.Frame {
-	e.initPathEditor()
-	sizes.Size[1] = min(1, sizes.Size[1])
-	prefix := " " + utils.StageIcons[e.GetStage()]
+	prefix := "  " + utils.StageIcons[e.GetStage()]
 	if prefix != "" {
 		prefix += " "
 	}
+	return e.drawPathWithPrefix(sizes, prefix, false)
+}
+
+func (e *Editor) drawAlignedPath(sizes types.Dimensions, left int) *types.Frame {
+	frame := e.drawPathWithPrefix(sizes, "", true)
+	style := "§xy0 "
+	if e.EditingPath || e.PathError != "" {
+		style = "§YX0 "
+	}
+	headerSizes := *e.VisualSizes
+	headerSizes.Size[1] = min(1, headerSizes.Size[1])
+	background := e.Settings.GenerateFrame(headerSizes, []string{style}, 0, []int{0, 0, 0, 0})
+	frame = e.Settings.MergeFrames(background, frame)
+	icon := utils.StageIcons[e.GetStage()]
+	width := utils.VisibleLength(icon) + 1
+	if icon == "" || width > sizes.Pos[0]-left {
+		return frame
+	}
+	// Keep the path anchored to the content column; draw the stage in the gutter.
+	sizes.Pos[0] -= width
+	sizes.Size[0] = width
+	sizes.Size[1] = min(1, sizes.Size[1])
+	stage := e.Settings.GenerateFrame(sizes, []string{style + icon + " "}, 0, []int{0, 0, 0, 0})
+	return e.Settings.MergeFrames(frame, stage)
+}
+
+func (e *Editor) drawPathWithPrefix(sizes types.Dimensions, prefix string, interactive bool) *types.Frame {
+	e.initPathEditor()
+	sizes.Size[1] = min(1, sizes.Size[1])
 	path := e.Spec
 	if e.PathEditor != nil {
 		path = e.PathEditor.Content[0]
 	}
-	if e.EditingPath && e.PathEditor != nil {
+	if interactive && e.EditingPath && e.PathEditor != nil {
 		runes := []rune(path)
 		cursor := min(e.PathEditor.Cursor[0], len(runes))
 		start := max(0, cursor-max(1, sizes.Size[0]-utils.VisibleLength(prefix))+2)
 		start = min(start, cursor)
-		line := string(runes[start:cursor]) + "¤bx "
+		line := string(runes[start:cursor]) + "¤BX "
 		if cursor < len(runes) {
 			line += string(runes[cursor]) + "¤ " + string(runes[cursor+1:])
 		} else {
 			line += " ¤ "
 		}
-		path = "§yx0 " + prefix + line
+		path = "§YX0 " + prefix + line
 	} else {
 		path = "§xy0 " + prefix + "‹b " + path + "›b "
 	}
-	if e.PathError != "" {
-		path = "§yx0 " + prefix + e.PathError
+	if interactive && e.PathError != "" {
+		path = "§YX0 " + prefix + e.PathError
 	}
 	return e.Settings.GenerateFrame(sizes, []string{path}, 0, []int{0, 0, 0, 0})
 }

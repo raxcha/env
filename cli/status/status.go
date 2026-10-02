@@ -37,7 +37,7 @@ func CreateStatus(parent cli.Parent) *Status {
 
 		Sizes:    types.Dimensions{},
 
-		Meta:     false,
+		Meta:     true,
 		Entries:   []entry{},
 	}
 
@@ -152,7 +152,7 @@ func (s *Status) Draw() *types.Queue {
 
 	} else {
 
-		line = "§yx0 ‹b " + line + "›b "
+		line = "§YX0 ‹b " + line + "›b "
 		
 	}
 

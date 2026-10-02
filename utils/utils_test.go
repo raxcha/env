@@ -17,6 +17,8 @@ func TestParseTime(t *testing.T) {
 		{"release-time weekday", "2026.09.29 (Tuesday)", date},
 		{"date weekday", "2026.09.29 (Tue)", date},
 		{"date", "2026.09.29", date},
+		{"plain weekday", "2026.09.29 tuesday", date},
+		{"plain weekday with time", "2026.09.29 14:35 tuesday", withTime},
 		{"time double space weekday", "2026.09.29  14:35 (Tuesday)", withTime},
 		{"time trailing space", "2026.09.29 14:35 ", withTime},
 		{"last-edited-time trailing space", "2026.09.29 14:35 ", withTime},

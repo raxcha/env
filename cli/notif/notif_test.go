@@ -4,6 +4,8 @@ import (
 	"env/filesystem"
 	"env/settings"
 	"env/types"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -42,5 +44,68 @@ func TestPendingPatchDisplay(t *testing.T) {
 	}
 	if n.Input(&types.Input{Description: "ctrl+s"}) {
 		t.Fatal("completed patch swallowed save shortcut")
+	}
+}
+
+func TestDoomNotificationConfirmAndCancel(t *testing.T) {
+	for _, stage := range []string{"draft", "local", "move"} {
+		for _, key := range []string{"ctrl+s", "ctrl+z"} {
+			t.Run(stage+"/"+key, func(t *testing.T) {
+				root := t.TempDir()
+				fs, err := filesystem.Open(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				page := fs.NewDraft("note", nil)
+				if stage != "draft" {
+					if err := os.WriteFile(filepath.Join(root, "note"), []byte("original"), 0600); err != nil {
+						t.Fatal(err)
+					}
+					page.Og = &types.Page{Path: "note"}
+				}
+				if stage == "move" {
+					page.Path = "renamed"
+				}
+				page.Stage = stage
+				fs.Cache[page.Path] = page
+				fs.DoomPage(page)
+				var patch *types.Patch
+				select {
+				case patch = <-fs.Patch:
+				case <-time.After(time.Second):
+					t.Fatal("missing notification")
+				}
+				t.Cleanup(func() { fs.CancelPatch(patch) })
+				n := &Notif{Filesystem: fs}
+				n.AddPatch(patch)
+				if !n.Input(&types.Input{Description: key}) {
+					t.Fatal("shortcut not handled")
+				}
+				_, err = os.Stat(filepath.Join(root, "note"))
+				if key == "ctrl+s" {
+					if !os.IsNotExist(err) || fs.Cache[page.Path] != nil {
+						t.Fatal("confirmation did not delete page")
+					}
+					fs.CancelPatch(patch)
+					if page.Stage != "doom" {
+						t.Fatal("completed deletion was undone")
+					}
+				} else {
+					if page.Stage != stage || fs.Cache[page.Path] != page {
+						t.Fatal("cancellation did not restore stage")
+					}
+					if stage != "draft" && err != nil {
+						t.Fatal("cancellation deleted file")
+					}
+					fs.ConfirmPatch(patch)
+					if fs.Cache[page.Path] != page {
+						t.Fatal("cancelled deletion was applied")
+					}
+				}
+				if len(n.Stack) != 0 {
+					t.Fatal("notification remains after action")
+				}
+			})
+		}
 	}
 }

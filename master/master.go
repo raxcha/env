@@ -1,7 +1,6 @@
 package master
 
 import (
-
 	"time"
 
 	"env/types"
@@ -13,26 +12,25 @@ import (
 	"env/settings"
 
 	"env/cli"
-	"env/cli/empty"
-	"env/cli/tabs"
-	"env/cli/status"
 	"env/cli/editor"
-	"env/cli/menu"
+	"env/cli/empty"
+	"env/cli/launcher"
 	"env/cli/notif"
+	"env/cli/status"
+	"env/cli/tabs"
 )
 
 type Master struct {
-
 	Processing *processing.Processing
 	Engine     *engine.Engine
 	Filesystem *filesystem.Filesystem
 	Settings   *settings.Settings
 
-	Tabs   *tabs.Tabs
-	Status *status.Status
-	Menu   *menu.Menu
-	Notif  *notif.Notif
-	Empty  *empty.Empty
+	Tabs     *tabs.Tabs
+	Status   *status.Status
+	Launcher *launcher.Launcher
+	Notif    *notif.Notif
+	Empty    *empty.Empty
 
 	Sizes types.Dimensions
 
@@ -42,6 +40,7 @@ type Master struct {
 	Mode   string
 	Layout string
 
+	Sidebar   editor.Sidebar
 	Clipboard string
 }
 
@@ -54,11 +53,11 @@ func CreateMaster(arg string) *Master {
 		Filesystem: &filesystem.Filesystem{},
 		Settings:   &settings.Settings{},
 
-		Tabs:   &tabs.Tabs{},
-		Status: &status.Status{},
-		Menu:   &menu.Menu{},
-		Notif:   &notif.Notif{},
-		Empty:  &empty.Empty{},
+		Tabs:     &tabs.Tabs{},
+		Status:   &status.Status{},
+		Launcher: &launcher.Launcher{},
+		Notif:    &notif.Notif{},
+		Empty:    &empty.Empty{},
 
 		Sizes: types.Dimensions{},
 
@@ -76,7 +75,7 @@ func CreateMaster(arg string) *Master {
 
 	m.Tabs = tabs.CreateTabs(&m)
 	m.Status = status.CreateStatus(&m)
-	m.Menu = menu.CreateMenu(&m)
+	m.Launcher = launcher.CreateLauncher(&m)
 	m.Notif = notif.CreateNotif(&m)
 	m.Empty = empty.CreateEmpty(&m)
 
@@ -175,10 +174,10 @@ func (m *Master) startListening() {
 
 		for {
 			select {
-				
+
 			case newSizes := <-m.Processing.Sizes:
 				m.Resizing(newSizes)
-				
+
 			case newInput := <-m.Processing.Input:
 				m.Inputting(newInput)
 
@@ -191,7 +190,7 @@ func (m *Master) startListening() {
 					m.Notif.Refresh()
 					m.Drawing()
 				}
-				
+
 			}
 		}
 	}()
@@ -199,35 +198,28 @@ func (m *Master) startListening() {
 
 func (m *Master) Inputting(newinput *types.Input) {
 
+	m.Tabs.Input(newinput, false)
+	m.Status.Input(newinput)
+
 	if m.Notif.Input(newinput) {
 		m.Drawing()
 		return
 	}
 
-	m.Tabs.Input(newinput, false)
-
-	if m.Menu.On {
+	if m.Launcher.On {
 
 		if newinput.Description == "esc" {
-			m.Menu.On = false
+			m.Launcher.Close()
 		} else {
-			m.Menu.Input(newinput)
+			m.Launcher.Input(newinput)
 		}
-
-	} else if m.Tabs.On {
-
-		m.Tabs.Input(newinput, true)
 
 	} else if newinput.Meta {
 
 		switch newinput.Description {
 
-		case "tab":
-			m.Tabs.On = !m.Tabs.On
-
 		case "enter":
-			m.Tabs.On = false
-			m.Menu.Open("default")
+			m.Launcher.Open("default")
 
 		case "backspace":
 			m.cycleMode()
@@ -236,11 +228,20 @@ func (m *Master) Inputting(newinput *types.Input) {
 		case "char":
 			if newinput.Char == ' ' {
 				m.cycleLayout()
+			} else {
+				m.Tabs.Input(newinput, true)
 			}
+
+		default:
+			m.Tabs.Input(newinput, true)
 		}
 
 	} else if len(m.Clients) > 0 {
-		m.Clients[m.Focus].Input(*newinput)
+		if m.Layout == "select" || m.Layout == "split" {
+			m.Sidebar.Input(newinput)
+		} else {
+			m.Clients[m.Focus].Input(*newinput)
+		}
 	}
 
 	m.Drawing()
@@ -263,10 +264,8 @@ func (m *Master) cycleMode() {
 	switch m.Mode {
 	case "monocle":
 		m.Mode = "fibonacci"
-		m.Layout = "visual"
 	case "fibonacci":
 		m.Mode = "monocle"
-		m.Layout = "split"
 	}
 	m.Resizing(&m.Sizes)
 }
@@ -282,7 +281,7 @@ func (m *Master) Resizing(newsizes *types.Dimensions) {
 func (m *Master) applySizes() {
 
 	m.resizeStatus()
-	m.resizeMenu()
+	m.resizeLauncher()
 	m.resizeNotif()
 	m.resizeEmpty()
 
@@ -291,7 +290,7 @@ func (m *Master) applySizes() {
 		m.resizeTabs()
 		m.resizeMonocle()
 	case "fibonacci":
-		// m.resizeFibonacci()
+		m.resizeFibonacci()
 	}
 }
 
@@ -310,12 +309,12 @@ func (m *Master) resizeStatus() {
 	m.Status.Resize(sizes)
 }
 
-func (m *Master) resizeMenu() {
+func (m *Master) resizeLauncher() {
 
 	sizes := m.Sizes
 	sizes.Size[1] -= 3
 	sizes.Pos[1] += 2
-	m.Menu.Resize(sizes)
+	m.Launcher.Resize(sizes)
 }
 
 func (m *Master) resizeNotif() {
@@ -330,6 +329,7 @@ func (m *Master) resizeMonocle() {
 	sizes := m.Sizes
 	sizes.Size[1] -= 3
 	sizes.Pos[1] += 2
+	sizes = m.sidebarArea(sizes)
 
 	for _, client := range m.Clients {
 		client.Resize(sizes)
@@ -345,9 +345,17 @@ func (m *Master) resizeEmpty() {
 }
 func (m *Master) Drawing() {
 
-	if m.Sizes.Full[0] == 0 || m.Sizes.Full[1] == 0 { return }
+	if m.Sizes.Full[0] == 0 || m.Sizes.Full[1] == 0 {
+		return
+	}
 
+	m.applySizes()
 	queues := []*types.Queue{}
+	if m.Mode == "fibonacci" {
+		queues = append(queues, m.drawFibonacciDividers())
+		panes, _ := m.fibonacciLayout()
+		queues = append(queues, m.Tabs.DrawFibonacci(panes)...)
+	}
 
 	queues = append(queues, m.Tabs.Draw())
 	queues = append(queues, m.Status.Draw())
@@ -362,11 +370,17 @@ func (m *Master) Drawing() {
 			queues = append(queues, m.Clients[m.Focus].Draw())
 		}
 	case "fibonacci":
-		// ...
+		for _, client := range m.Clients {
+			queues = append(queues, client.Draw())
+		}
+	}
+
+	if m.Layout == "select" || m.Layout == "split" {
+		queues = append(queues, m.Sidebar.Draw(m.Settings))
 	}
 
 	queues = append(queues, m.Notif.Draw())
-	queues = append(queues, m.Menu.Draw())
+	queues = append(queues, m.Launcher.Draw())
 
 	m.Engine.CallEngine(*m.Settings.MergeQueues(queues...))
 }
@@ -412,6 +426,9 @@ func (m *Master) MoveClient(from int, to int) {
 
 	m.Clients = append(m.Clients[:from], m.Clients[from+1:]...)
 	m.Clients = append(m.Clients[:to], append([]cli.Client{client}, m.Clients[to:]...)...)
+	if m.Mode == "fibonacci" {
+		m.resizeFibonacci()
+	}
 }
 
 func (m *Master) CloseClient(idx int) {
@@ -447,11 +464,39 @@ func (m *Master) GetSizes() *types.Dimensions {
 	return &m.Sizes
 }
 
-
 func (m *Master) GetClipboard() string {
 	return m.Clipboard
 }
 
 func (m *Master) SetClipboard(content string) {
 	m.Clipboard = content
+}
+
+// sidebarArea reserves space once, before laying out individual editors.
+func (m *Master) sidebarArea(area types.Dimensions) types.Dimensions {
+	editors := []*editor.Editor{}
+	for i, client := range m.Clients {
+		if e, ok := client.(*editor.Editor); ok {
+			e.SharedSidebar = true
+			if m.Mode == "fibonacci" || i == m.Focus {
+				editors = append(editors, e)
+			}
+		}
+	}
+	if m.Layout != "select" && m.Layout != "split" {
+		return area
+	}
+	content := m.Sidebar.Prepare(editors, area)
+	if m.Layout == "select" && len(editors) > 0 {
+		m.Sidebar.Sizes = m.Sizes
+		m.Sidebar.Sizes.Size[0] = max(0, m.Sizes.Size[0])
+		m.Sidebar.Sizes.Size[1] = max(0, m.Sizes.Size[1]-1)
+		if m.Mode == "monocle" {
+			tabHeight := min(2, m.Sidebar.Sizes.Size[1])
+			m.Sidebar.Sizes.Pos[1] += tabHeight
+			m.Sidebar.Sizes.Size[1] -= tabHeight
+		}
+		content.Size = types.Size{}
+	}
+	return content
 }

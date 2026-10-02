@@ -136,6 +136,34 @@ func TestSyncAppliesAfterDeadline(t *testing.T) {
 	}
 }
 
+func TestSaveLocalDraftDirectlyUnderFamiOrProj(t *testing.T) {
+	for _, path := range []string{"fami/person", "proj/project", "proj/../fami/person", "fami/person/note", "proj/project/note", "other/proj/note", "other/note", "proj", "note"} {
+		t.Run(path, func(t *testing.T) {
+			f := &Filesystem{root: t.TempDir()}
+			page := f.NewDraft(path, nil)
+			page.Content = []string{"saved", "content"}
+			_, patch := f.SyncLocal(&types.Syncing{Branch: page})
+			if page.Type != "draft" {
+				t.Fatal("draft type changed before applying the patch")
+			}
+			f.ApplyPatch(patch)
+			wantType := "draft"
+			target := filepath.Join(f.root, path)
+			if parent := filepath.Dir(filepath.Clean(path)); parent == "fami" || parent == "proj" {
+				wantType = "deep"
+				target = filepath.Join(target, "index")
+			}
+			if page.Type != wantType || page.Og.Type != wantType || page.Stage != "edit" {
+				t.Fatalf("unexpected saved page: %+v", page)
+			}
+			data, err := os.ReadFile(target)
+			if err != nil || string(data) != "saved\ncontent" {
+				t.Fatalf("content=%q err=%v", data, err)
+			}
+		})
+	}
+}
+
 func TestPatchApplyAndCancelOnlyOnce(t *testing.T) {
 	f := &Filesystem{}
 	count := 0

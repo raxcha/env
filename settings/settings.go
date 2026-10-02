@@ -481,7 +481,7 @@ func (s *Settings) InterpretRunes(style *types.Style, runes []rune) (*types.Styl
 		if len(runes) < 3 {
 			break
 		}
-		style.StdAnsi = types.Ansi{Bg: s.ChooseColor(runes[1], "bg", 0), Fg: s.ChooseColor(runes[2], "fg", 0)}
+		style.StdAnsi = types.Ansi{Bg: s.ChooseColor(runes[1], "bg", 0.5), Fg: s.ChooseColor(runes[2], "fg", 0.5)}
 		style.Ansi = style.StdAnsi
 		wrap, _ = strconv.Atoi(string(runes[3:]))
 
@@ -489,7 +489,7 @@ func (s *Settings) InterpretRunes(style *types.Style, runes []rune) (*types.Styl
 		if len(runes) < 3 {
 			style.Ansi = style.StdAnsi
 		} else {
-			style.Ansi = types.Ansi{Bg: s.ChooseColor(runes[1], "bg", 0), Fg: s.ChooseColor(runes[2], "fg", 0)}
+			style.Ansi = types.Ansi{Bg: s.ChooseColor(runes[1], "bg", 0.5), Fg: s.ChooseColor(runes[2], "fg", 0.5)}
 		}
 
 	case '¬':

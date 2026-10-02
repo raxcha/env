@@ -64,7 +64,10 @@ func TestLogEventIgnoresOtherLines(t *testing.T) {
 }
 
 func TestSaveLogEventCreatesCachedDraft(t *testing.T) {
-	for _, tc := range []struct{ marker, root string }{{"`", "rand"}, {">", "rec"}, {"=", "rec"}, {"~", "rec"}} {
+	for _, tc := range []struct {
+		marker, root, prefix string
+		timed                bool
+	}{{"`", "rand", "`", false}, {">", "rec", ">", false}, {"=", "rec", "=", false}, {"=", "rec", "=", true}, {"~", "rec", "~", false}} {
 		t.Run(tc.marker, func(t *testing.T) {
 			dir := t.TempDir()
 			fs, err := filesystem.Open(dir)
@@ -77,9 +80,14 @@ func TestSaveLogEventCreatesCachedDraft(t *testing.T) {
 				}
 			})
 			e := Editor{Filesystem: fs, Page: fs.NewDraft("log/day", nil), Content: []string{tc.marker + " O que está escrito / na linha!"}}
+			if tc.timed {
+				e.Content = append([]string{"08:32"}, e.Content...)
+				e.Cursor[1] = 1
+			}
 			e.savePage()
 			id := strings.TrimPrefix(e.Content[2], "id: ")
-			path := tc.root + "/>" + id + "$o-que-está-escrito-na-linha"
+			title := "o-que-está-escrito-na-linha"
+			path := tc.root + "/" + tc.prefix + id + "$" + title
 			draft := fs.Cache[path]
 			if draft == nil || draft.Stage != "draft" || draft.Name != filepath.Base(path) {
 				t.Fatalf("missing event draft at %q: %#v", path, draft)
@@ -95,12 +103,39 @@ func TestSaveLogEventCreatesCachedDraft(t *testing.T) {
 			e.savePage()
 			count := 0
 			for key := range fs.Cache {
-				if strings.HasPrefix(key, tc.root+"/>") {
+				if strings.HasPrefix(key, tc.root+"/"+tc.prefix) {
 					count++
 				}
 			}
 			if count != 1 {
 				t.Fatalf("created %d drafts for one ID", count)
+			}
+		})
+	}
+}
+
+func TestLogEventDraftNames(t *testing.T) {
+	for _, tc := range []struct{ line, path string }{
+		{"~ Nome do título", "rec/~abcdef123456$nome-do-título"},
+		{"~ um título com muitas palavras extras", "rec/~abcdef123456$um-título-com-muitas-palavras-extras"},
+		{"` Nome do título", "rand/`abcdef123456$nome-do-título"},
+		{"` um título com muitas palavras extras", "rand/`abcdef123456$um-título-com-muitas-palavras-extras"},
+		{"` extraordinariamentecomprida depois", "rand/`abcdef123456$extraordinariamentecomprida-depois"},
+		{"> trabalhar no @Meu-Projeto/tarefa", "rec/>abcdef123456$trabalhar-no-meu-projeto-tarefa"},
+		{"> trabalhar no @Meu-Projeto$referencia", "rec/>abcdef123456$trabalhar-no-meu-projeto-referencia"},
+		{"> @um-projeto-com-nome-muito-longo tarefa", "rec/>abcdef123456$um-projeto-com-nome-muito-longo-tarefa"},
+		{"= @proj-name.template-name", "rec/=abcdef123456$proj-name.template-name"},
+		{"= @culture.watch", "rec/=abcdef123456$culture.watch"},
+	} {
+		t.Run(tc.line, func(t *testing.T) {
+			fs, err := filesystem.Open(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			e := Editor{Filesystem: fs, Page: &types.Page{Path: "log/day"}, Content: []string{"08:32", tc.line, "id: abcdef123456"}, Cursor: [3]int{0, 1, 0}}
+			e.ensureLogEvent()
+			if fs.Cache[tc.path] == nil {
+				t.Fatalf("expected draft %q, got %v", tc.path, fs.Cache)
 			}
 		})
 	}

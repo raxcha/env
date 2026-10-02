@@ -95,6 +95,14 @@ func ParseTime(str string) time.Time {
 
 	str = strings.Join(strings.Fields(str), " ")
 	str = weekdaySuffix.ReplaceAllString(str, "")
+	if parts := strings.Fields(str); len(parts) > 1 {
+		for _, day := range []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"} {
+			if strings.EqualFold(parts[len(parts)-1], day) {
+				str = strings.Join(parts[:len(parts)-1], " ")
+				break
+			}
+		}
+	}
 
 	layouts := []string{"2006.01.02 15:04", "15:04 2006.01.02", "2006.01.02"}
 	for _, layout := range layouts {

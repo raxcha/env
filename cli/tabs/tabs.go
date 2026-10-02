@@ -80,7 +80,12 @@ func (t *Tabs) refresh() {
 		}
 
 		newLabel.Short = client.GetShortLabel()
-		newLabel.Long = client.GetLongLabel() + "[" + string("ASDFGHJKLQWERTYUIOPZXCVBNM1234567890"[i]) + "]"
+		newLabel.Long = client.GetLongLabel()
+		if t.On {
+			shortcut := "[" + string("ASDFGHJKLQWERTYUIOPZXCVBNM1234567890"[i]) + "]"
+			newLabel.Short += shortcut
+			newLabel.Long += shortcut
+		}
 		
 		entries = append(entries, newLabel)
 	}
@@ -105,9 +110,6 @@ func (t *Tabs) Draw() *types.Queue {
 
 	case "monocle":
 		return t.drawMonocle()
-
-	// case "fibonacci":
-		// return t.drawFibonacci()
 
 	default:
 		return &types.Queue{}
@@ -159,7 +161,7 @@ func (t *Tabs) drawMonocle() *types.Queue {
 	}
 
 	if t.Meta {
-		top = "§yx0 " + top
+		top = "§YX0 " + top
 		bot = "§xy0 " + bot
 	} else {
 		top = "§xy0 " + top
@@ -175,12 +177,13 @@ func (t *Tabs) Input(newinput *types.Input, real bool) {
 
 	if !real {
 		t.Meta = newinput.Meta
+		t.On = newinput.Meta
 		return
 	}
 
 	switch newinput.Description {
 
-	case "char":
+	case "char", "number":
 		t.quickSwitch(newinput.Char)
 
 	case "left":
@@ -194,10 +197,6 @@ func (t *Tabs) Input(newinput *types.Input, real bool) {
 
 	case "ctrl+right":
 		t.moveClient(1)
-
-	case "tab":
-		t.Parent.SetFocus(t.Focus)
-		t.On = false
 
 	case "ctrl+Q":
 		t.closeCurrent()
@@ -215,7 +214,6 @@ func (t *Tabs) quickSwitch(char rune) {
 	newIndex := strings.IndexRune("asdfghjklqwertyuiopzxcvbnm1234567890"[:t.Parent.GetClientsSize()], char)
 	if newIndex != -1 {
 		t.Parent.SetFocus(newIndex)
-		t.On = false
 	}
 }
 

@@ -60,12 +60,33 @@ func (f *Filesystem) NewDraft(path string, metadata map[string]any) *types.Page 
 }
 
 // CacheEventDraft ensures an event exists in memory without scheduling a write.
-func (f *Filesystem) CacheEventDraft(root, id, title string) *types.Page {
+func (f *Filesystem) CacheEventDraft(root, marker, id, title string) *types.Page {
 	f.cacheMutex.Lock()
 	defer f.cacheMutex.Unlock()
-	prefix := root + "/>" + id + "$"
+	prefix := root + "/" + marker + id + "$"
 	for path, page := range f.Cache {
 		if strings.HasPrefix(path, prefix) {
+			return page
+		}
+	}
+	// A saved event may not have been loaded in this session yet.
+	entries, _ := os.ReadDir(filepath.Join(f.whereIsRoot(), root))
+	for _, entry := range entries {
+		if strings.HasPrefix(root+"/"+entry.Name(), prefix) {
+			path := root + "/" + entry.Name()
+			page := f.NewDraft(path, nil)
+			page.Stage = "edit"
+			page.Type = "shallow"
+			absolute := filepath.Join(f.whereIsRoot(), path)
+			if entry.IsDir() {
+				page.Type = "deep"
+				absolute = filepath.Join(absolute, "index")
+			}
+			page.Content = f.getContent(absolute)
+			if f.Cache == nil {
+				f.Cache = map[string]*types.Page{}
+			}
+			f.Cache[path] = page
 			return page
 		}
 	}
@@ -159,7 +180,23 @@ func (f *Filesystem) RepathPage(page *types.Page, newpath string) error {
 
 func (f *Filesystem) DoomPage(page *types.Page) {
 
+	previous := page.Stage
 	page.Stage = "doom"
+	if f.Patch != nil {
+		// Expiration only dismisses the notification; deletion requires confirmation.
+		patch := f.newPatch()
+		patch.Description = append(patch.Description, []string{page.Path, previous, "doom"})
+		patch.OnConfirm = func() {
+			if previous != "draft" {
+				if err := f.SavePage(page); err != nil { return }
+			}
+			if page.Og != nil { delete(f.Cache, page.Og.Path) }
+			delete(f.Cache, page.Path)
+		}
+		patch.OnCancel = func() { page.Stage = previous }
+		f.schedulePatch(patch)
+		go func() { f.Patch <- patch }()
+	}
 }
 
 func (f *Filesystem) NewLoading() *types.Loading {
@@ -356,6 +393,10 @@ func (f *Filesystem) reload() {
 	
 
 	f.Options = f.getMetadata(filepath.Join(f.whereIsRoot(), ".options"))
+	for _, line := range lines {
+		key, value := utils.SplitTwo(line, ":")
+		if key == "theme" { f.Options[key] = value }
+	}
 }
 
 
@@ -407,7 +448,7 @@ func (f *Filesystem) LoadLocal(req *types.Loading) (bool, *types.Page) {
 			return true, page
 		}
 		page := f.NewDraft(relpath, nil)
-		page.Content = []string{""}
+		page.Content = f.dailyDraftContent(relpath)
 		page.Sorting = req.Sort
 		if f.Cache == nil {
 			f.Cache = map[string]*types.Page{}
@@ -738,6 +779,11 @@ func sortChildren(name string, pages []*types.Page) {
 	}
 
 	sort.SliceStable(pages, func(i, j int) bool {
+		ipinned := pages[i].Path == "log/spaced-repetition"
+		jpinned := pages[j].Path == "log/spaced-repetition"
+		if ipinned != jpinned {
+			return ipinned
+		}
 		return !strings.HasPrefix(pages[i].Name, ".") && strings.HasPrefix(pages[j].Name, ".")
 	})
 }
@@ -843,9 +889,18 @@ func (f *Filesystem) schedulePatch(patch *types.Patch) {
 }
 
 func (f *Filesystem) ApplyPatch(p *types.Patch) {
+	f.applyPatch(p, false)
+}
+
+func (f *Filesystem) ConfirmPatch(p *types.Patch) {
+	f.applyPatch(p, true)
+}
+
+func (f *Filesystem) applyPatch(p *types.Patch, confirm bool) {
 	if p == nil { return }
 	p.Once.Do(func() {
 		if p.Timer != nil { p.Timer.Stop() }
+		if confirm && p.OnConfirm != nil { p.OnConfirm() }
 		for _, fn := range p.Commands { fn() }
 		if p.Done != nil { close(p.Done) }
 	})
@@ -855,6 +910,7 @@ func (f *Filesystem) CancelPatch(p *types.Patch) {
 	if p == nil { return }
 	p.Once.Do(func() {
 		if p.Timer != nil { p.Timer.Stop() }
+		if p.OnCancel != nil { p.OnCancel() }
 		if p.Done != nil { close(p.Done) }
 	})
 }
@@ -862,6 +918,9 @@ func (f *Filesystem) CancelPatch(p *types.Patch) {
 func (f *Filesystem) walkSync(patch *types.Patch, hard bool, page *types.Page) *types.Patch {
 
 	f.syncOnce(patch, page)
+	if copy := f.copyPlanDraft(page); copy != nil {
+		f.syncOnce(patch, copy)
+	}
 
 	if hard {
 		for _, child := range page.Children {
@@ -882,7 +941,10 @@ func (f *Filesystem) syncOnce(patch *types.Patch, page *types.Page) *types.Patch
 
 		patch.Commands = append(patch.Commands, func() {
 
-				_, _, abspath := f.standardizePaths(page.Path)
+				_, relpath, abspath := f.standardizePaths(page.Path)
+				if parent := filepath.Dir(relpath); parent == "fami" || parent == "proj" {
+					page.Type = "deep"
+				}
 
 				target := abspath
 				if page.Type == "deep" {

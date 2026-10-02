@@ -24,22 +24,22 @@ func TestSelectIncludesContainingTree(t *testing.T) {
 		e.newPageEntry(root, 1)
 		for range 2 {
 			e.generateAllEntries()
-			if len(e.Entries) != 3 || e.Entries[0].Page.Path != "log" || e.Entries[1].Page != opened {
-				t.Fatalf("draft=%v: expected root then opened page exactly once", draft)
+			if len(e.Entries) != 2 || e.Entries[0].Page != opened || e.Entries[1].Type != "load-more" {
+				t.Fatalf("draft=%v: expected opened page exactly once without the root", draft)
 			}
-			if e.Entries[0].descendantPages() != 1 {
+			if e.Modules[1].descendantPages() != 1 {
 				t.Fatal("incorrect descendant count")
 			}
 		}
 		e.Focus = 0
 		e.collapse(true)
 		e.generateAllEntries()
-		if len(e.Entries) != 2 || e.Entries[0].Page.Path != "log" {
-			t.Fatal("collapsed child still visible")
+		if len(e.Entries) != 2 || e.Entries[0].Page != opened {
+			t.Fatal("collapsing a leaf changed visible entries")
 		}
 		e.collapse(false)
-		if len(e.Entries) != 3 {
-			t.Fatal("child not restored")
+		if len(e.Entries) != 2 {
+			t.Fatal("expanding a leaf changed visible entries")
 		}
 	}
 }

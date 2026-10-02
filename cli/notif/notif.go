@@ -53,7 +53,7 @@ func (n *Notif) Input(input *types.Input) bool {
 	patch := n.Stack[len(n.Stack)-1]
 	switch input.Description {
 	case "ctrl+S", "ctrl+s":
-		n.Filesystem.ApplyPatch(patch)
+		n.Filesystem.ConfirmPatch(patch)
 	case "ctrl+Z", "ctrl+z":
 		n.Filesystem.CancelPatch(patch)
 	default:
@@ -80,7 +80,7 @@ func (n *Notif) Draw() *types.Queue {
 			}
 			text := " " + strconv.Itoa(seconds) + "s " + label + " "
 			width = max(width, utils.VisibleLength(text))
-			lines = append(lines, "§yx0 "+text)
+			lines = append(lines, "§YX0 "+text)
 		}
 	}
 	sizes := n.Sizes

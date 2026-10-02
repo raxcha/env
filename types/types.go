@@ -126,6 +126,8 @@ type Patch struct {
 	Description [][]string
 
 	Commands []func()
+	OnConfirm func()
+	OnCancel func()
 	Timer *time.Timer
 	Deadline time.Time
 	Done chan struct{}
